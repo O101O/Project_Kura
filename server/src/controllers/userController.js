@@ -56,3 +56,23 @@ export const searchUsers = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getFavoriteUsers = async (req, res, next) => {
+  try {
+    const currentUser = await User.findById(req.user._id)
+      .populate('starredUsers', 'username profilePic bio status')
+      .select('starredUsers');
+
+    const users = (currentUser?.starredUsers || []).map((user) => ({
+      _id: user._id,
+      username: user.username,
+      profilePic: user.profilePic,
+      bio: user.bio,
+      status: user.status
+    }));
+
+    res.status(200).json({ users });
+  } catch (error) {
+    next(error);
+  }
+};

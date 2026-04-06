@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../hooks/useSocket';
@@ -11,6 +12,8 @@ import SettingsPanel from '../components/settings/SettingsPanel';
 const ChatPage = () => {
   const { user, setUser, logout } = useAuth();
   const { socket, onlineUsers } = useSocket(user?._id);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const [friends, setFriends] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -26,12 +29,15 @@ const ChatPage = () => {
   const [mobileView, setMobileView] = useState('list');
   const [requestsOpen, setRequestsOpen] = useState(true);
   const [requestActionLoading, setRequestActionLoading] = useState({});
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [friendStatuses, setFriendStatuses] = useState({});
   const [deletedChatIds, setDeletedChatIds] = useState([]);
   const [profileActionLoading, setProfileActionLoading] = useState(false);
+  const [groupActionLoading, setGroupActionLoading] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
+  const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+  const [kickTarget, setKickTarget] = useState(null);
+  const [isDeleteGroupOpen, setIsDeleteGroupOpen] = useState(false);
   const [groupForm, setGroupForm] = useState({
     name: '',
     members: [],
@@ -40,6 +46,9 @@ const ChatPage = () => {
 
   const feedbackTimerRef = useRef(null);
   const latestSearchReqRef = useRef(0);
+  const isSettingsRoute = location.pathname === '/settings';
+  const settingsState = useMemo(() => ({ from: location.pathname }), [location.pathname]);
+  const settingsReturnTo = location.state?.from || '/chat';
 
   const showFeedback = useCallback((message, duration = 2000) => {
     if (feedbackTimerRef.current) {
@@ -212,7 +221,25 @@ const ChatPage = () => {
 
     const onGroupCreated = ({ group }) => {
       setGroups((prev) => prev.some((item) => item._id === group._id) ? prev : [group, ...prev]);
+      socket.emit('group:join', group._id);
       showFeedback(`Group created: ${group.name}`, 2200);
+    };
+
+    const onGroupUpdated = ({ group }) => {
+      if (group?._id) {
+        socket.emit('group:join', group._id);
+      }
+      fetchSidebarData();
+    };
+
+    const onGroupRemoved = ({ groupId }) => {
+      setGroups((prev) => prev.filter((group) => group._id !== groupId));
+      setSelectedChat((prev) => (prev?.type === 'group' && prev._id === groupId ? null : prev));
+      setMessages([]);
+      setIsAddMemberOpen(false);
+      setKickTarget(null);
+      setIsDeleteGroupOpen(false);
+      showFeedback('You were removed from the group', 2200);
     };
 
     socket.on('friend-request:new', onFriendRequestNew);
@@ -222,6 +249,8 @@ const ChatPage = () => {
     socket.on('statusChanged', onStatusChanged);
     socket.on('status:changed', onStatusChanged);
     socket.on('group:created', onGroupCreated);
+    socket.on('groupUpdated', onGroupUpdated);
+    socket.on('groupRemoved', onGroupRemoved);
 
     return () => {
       socket.off('friend-request:new', onFriendRequestNew);
@@ -231,6 +260,8 @@ const ChatPage = () => {
       socket.off('statusChanged', onStatusChanged);
       socket.off('status:changed', onStatusChanged);
       socket.off('group:created', onGroupCreated);
+      socket.off('groupUpdated', onGroupUpdated);
+      socket.off('groupRemoved', onGroupRemoved);
     };
   }, [socket, fetchSidebarData, showFeedback]);
 
@@ -573,6 +604,79 @@ const ChatPage = () => {
     }
   };
 
+  const availableGroupFriends = useMemo(() => {
+    if (selectedChat?.type !== 'group') {
+      return [];
+    }
+
+    const memberIds = new Set((selectedChat.members || []).map((member) => member._id));
+    return friends.filter((friend) => !memberIds.has(friend._id));
+  }, [friends, selectedChat]);
+
+  const updateGroupRole = async (endpoint, memberId, successMessage) => {
+    if (!selectedChat || selectedChat.type !== 'group') {
+      return;
+    }
+
+    try {
+      setGroupActionLoading(true);
+      const { data } = await api.post(`/group/${selectedChat._id}/${endpoint}`, { userId: memberId });
+      setGroups((prev) => prev.map((group) => (group._id === data.group._id ? data.group : group)));
+      setSelectedChat((prev) => (prev?.type === 'group' && prev._id === data.group._id ? data.group : prev));
+      showFeedback(successMessage, 1800);
+    } catch (error) {
+      showFeedback(error.response?.data?.message || 'Failed to update group', 2200);
+    } finally {
+      setGroupActionLoading(false);
+    }
+  };
+
+  const handleAddMember = async (memberId) => {
+    if (!memberId) {
+      return;
+    }
+
+    await updateGroupRole('add-member', memberId, 'User added');
+    setIsAddMemberOpen(false);
+  };
+
+  const handleMakeAdmin = async (member) => {
+    await updateGroupRole('make-admin', member._id, 'Admin updated');
+  };
+
+  const handleRemoveAdmin = async (member) => {
+    await updateGroupRole('remove-admin', member._id, 'Admin updated');
+  };
+
+  const handleKickMember = async () => {
+    if (!kickTarget) {
+      return;
+    }
+
+    await updateGroupRole('remove-member', kickTarget._id, 'User removed');
+    setKickTarget(null);
+  };
+
+  const handleDeleteGroup = async () => {
+    if (!selectedChat || selectedChat.type !== 'group') {
+      return;
+    }
+
+    try {
+      setGroupActionLoading(true);
+      await api.delete(`/group/${selectedChat._id}`);
+      setGroups((prev) => prev.filter((group) => group._id !== selectedChat._id));
+      setSelectedChat(null);
+      setMessages([]);
+      setIsDeleteGroupOpen(false);
+      showFeedback('Group deleted', 1800);
+    } catch (error) {
+      showFeedback(error.response?.data?.message || 'Failed to delete group', 2200);
+    } finally {
+      setGroupActionLoading(false);
+    }
+  };
+
   const canMessage = selectedChat?.type === 'group'
     ? true
     : Boolean(selectedChat) && !selectedChat?.isBlocked && !selectedChat?.hasBlockedYou;
@@ -608,7 +712,7 @@ const ChatPage = () => {
               onToggleRequests={() => setRequestsOpen((prev) => !prev)}
               onRespondRequest={respondToRequest}
               requestActionLoading={requestActionLoading}
-              onOpenSettings={() => setIsSettingsOpen(true)}
+              settingsState={settingsState}
               onOpenCreateGroup={() => setIsCreateGroupOpen(true)}
             />
           </div>
@@ -630,14 +734,121 @@ const ChatPage = () => {
             />
           </div>
           <ProfilePanel
+            currentUser={user}
             selectedChat={selectedChat}
             onMuteToggle={handleMuteToggle}
             onBlockToggle={handleBlockToggle}
             onDeleteChat={() => setIsDeleteConfirmOpen(true)}
             actionLoading={profileActionLoading}
+            onOpenAddMember={() => setIsAddMemberOpen(true)}
+            onMakeAdmin={handleMakeAdmin}
+            onRemoveAdmin={handleRemoveAdmin}
+            onKickMember={(member) => setKickTarget(member)}
+            onDeleteGroup={() => setIsDeleteGroupOpen(true)}
+            groupActionLoading={groupActionLoading}
           />
         </div>
       </div>
+
+      {isAddMemberOpen && selectedChat?.type === 'group' && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/45 p-4">
+          <div className="kura-card w-full max-w-md p-6 animate-fadeIn">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Add Member</h3>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Select a friend to add to {selectedChat.name}.</p>
+            <div className="mt-5 max-h-80 space-y-2 overflow-y-auto">
+              {availableGroupFriends.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                  All of your friends are already in this group.
+                </div>
+              ) : (
+                availableGroupFriends.map((friend) => (
+                  <button
+                    key={friend._id}
+                    type="button"
+                    onClick={() => handleAddMember(friend._id)}
+                    disabled={groupActionLoading}
+                    className="flex w-full items-center justify-between rounded-xl border border-slate-200 px-3 py-3 text-left hover:bg-slate-50 disabled:opacity-70 dark:border-slate-700 dark:hover:bg-slate-800"
+                  >
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={friend.profilePic || `https://api.dicebear.com/8.x/initials/svg?seed=${friend.username}`}
+                        alt={friend.username}
+                        className="h-10 w-10 rounded-full object-cover"
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{friend.username}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{friend.bio || 'Friend available to add'}</p>
+                      </div>
+                    </div>
+                    <span className="rounded-lg bg-brand-600 px-2.5 py-1.5 text-xs font-semibold text-white">Add</span>
+                  </button>
+                ))
+              )}
+            </div>
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 dark:border-slate-700 dark:text-slate-300"
+                onClick={() => setIsAddMemberOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {kickTarget && selectedChat?.type === 'group' && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/45 p-4">
+          <div className="kura-card w-full max-w-md p-6 animate-fadeIn">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Remove Member</h3>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Are you sure you want to remove {kickTarget.username} from {selectedChat.name}?</p>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 dark:border-slate-700 dark:text-slate-300"
+                onClick={() => setKickTarget(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={groupActionLoading}
+                className="rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-70"
+                onClick={handleKickMember}
+              >
+                {groupActionLoading ? 'Removing...' : 'Kick Member'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isDeleteGroupOpen && selectedChat?.type === 'group' && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/45 p-4">
+          <div className="kura-card w-full max-w-md p-6 animate-fadeIn">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Delete Group</h3>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">This will permanently remove {selectedChat.name} and all of its messages for every member.</p>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 dark:border-slate-700 dark:text-slate-300"
+                onClick={() => setIsDeleteGroupOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={groupActionLoading}
+                className="rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-70"
+                onClick={handleDeleteGroup}
+              >
+                {groupActionLoading ? 'Deleting...' : 'Delete Group'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isCreateGroupOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/45 p-4">
@@ -736,8 +947,8 @@ const ChatPage = () => {
       )}
 
       <SettingsPanel
-        open={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
+        open={isSettingsRoute}
+        onClose={() => navigate(settingsReturnTo)}
         user={user}
         setUser={setUser}
         socket={socket}

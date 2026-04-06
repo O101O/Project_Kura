@@ -6,14 +6,26 @@ import { uploadImageBuffer } from '../utils/uploadImage.js';
 import { emitToUser, emitPresenceUpdates, emitToGroup } from '../socket/socketState.js';
 
 const asString = (value) => String(value);
-const uniqueIds = (values) => Array.from(new Set((values || []).map((value) => asString(value))));
+const toIdString = (value) => asString(value?._id || value);
+const uniqueIds = (values) => Array.from(new Set((values || []).map((value) => toIdString(value))));
+const getAdminIds = (group) => uniqueIds(
+  Array.isArray(group?.admin) && group.admin.length > 0
+    ? group.admin
+    : group?.admin
+      ? [group.admin]
+      : []
+);
+const isGroupAdmin = (group, userId) => getAdminIds(group).includes(asString(userId));
 
 const mapGroup = (group, currentUserId) => ({
   _id: group._id,
   name: group.name,
   groupPic: group.groupPic,
-  admin: group.admin?._id || group.admin,
-  adminName: group.admin?.username || '',
+  admin: getAdminIds(group),
+  adminDetails: (Array.isArray(group.admin) ? group.admin : []).map((adminUser) => ({
+    _id: adminUser._id,
+    username: adminUser.username
+  })),
   members: (group.members || []).map((member) => ({
     _id: member._id,
     username: member.username,
@@ -22,8 +34,54 @@ const mapGroup = (group, currentUserId) => ({
   })),
   memberCount: group.members?.length || 0,
   type: 'group',
-  isAdmin: String(group.admin?._id || group.admin) === String(currentUserId)
+  isAdmin: isGroupAdmin(group, currentUserId)
 });
+
+const populateGroup = (groupId) => Group.findById(groupId)
+  .populate('admin', 'username')
+  .populate('members', 'username profilePic status blockedUsers');
+
+const populateGroupForAdmin = (groupId, userId) => Group.findOne({
+  _id: groupId,
+  members: userId,
+  $or: [
+    { admin: userId },
+    { admin: { $in: [userId] } }
+  ]
+})
+  .populate('admin', 'username')
+  .populate('members', 'username profilePic status blockedUsers');
+
+const ensureGroupMembership = (group, userId) => (group.members || []).some((member) => toIdString(member) === asString(userId));
+
+const ensureAdminAccess = (group, userId, message) => {
+  if (!isGroupAdmin(group, userId)) {
+    return { ok: false, status: 403, message };
+  }
+
+  return { ok: true };
+};
+
+const emitGroupUpdate = async (groupId, actorId, extraRecipients = []) => {
+  const populatedGroup = await populateGroup(groupId);
+  if (!populatedGroup) {
+    return null;
+  }
+
+  emitToGroup(groupId, 'groupUpdated', { group: mapGroup(populatedGroup, actorId) });
+
+  const recipients = uniqueIds([
+    ...getAdminIds(populatedGroup),
+    ...(populatedGroup.members || []).map((member) => toIdString(member)),
+    ...extraRecipients
+  ]);
+
+  for (const userId of recipients) {
+    emitToUser(userId, 'groupUpdated', { group: mapGroup(populatedGroup, userId) });
+  }
+
+  return populatedGroup;
+};
 
 export const createGroup = async (req, res, next) => {
   try {
@@ -100,13 +158,11 @@ export const createGroup = async (req, res, next) => {
     const group = await Group.create({
       name,
       members: validMembers,
-      admin: currentUserId,
+      admin: [currentUserId],
       groupPic
     });
 
-    const populatedGroup = await Group.findById(group._id)
-      .populate('admin', 'username')
-      .populate('members', 'username profilePic status');
+    const populatedGroup = await populateGroup(group._id);
 
     for (const memberId of validMembers) {
       emitToUser(memberId, 'group:created', { group: mapGroup(populatedGroup, memberId) });
@@ -218,6 +274,221 @@ export const sendGroupMessage = async (req, res, next) => {
     emitToGroup(groupId, 'newGroupMessage', populatedMessage);
 
     return res.status(201).json({ message: populatedMessage });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const addGroupMember = async (req, res, next) => {
+  try {
+    const { groupId } = req.params;
+    const { userId } = req.body;
+    const currentUserId = asString(req.user._id);
+
+    if (!mongoose.Types.ObjectId.isValid(groupId) || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: 'Invalid group or user id' });
+    }
+
+    const group = await populateGroupForAdmin(groupId, currentUserId);
+    if (!group) {
+      const memberGroup = await populateGroup(groupId);
+      if (memberGroup && ensureGroupMembership(memberGroup, currentUserId)) {
+        return res.status(403).json({ message: 'Only admin can add members' });
+      }
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    if (ensureGroupMembership(group, userId)) {
+      return res.status(400).json({ message: 'User is already a member' });
+    }
+
+    const currentUser = await User.findById(currentUserId).select('friends blockedUsers');
+    const userToAdd = await User.findById(userId).select('username blockedUsers');
+
+    if (!currentUser || !userToAdd) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const currentFriends = new Set((currentUser.friends || []).map(asString));
+    if (!currentFriends.has(asString(userId))) {
+      return res.status(403).json({ message: 'You can only add friends to the group' });
+    }
+
+    const currentBlocked = new Set((currentUser.blockedUsers || []).map(asString));
+    const userBlocked = new Set((userToAdd.blockedUsers || []).map(asString));
+    if (currentBlocked.has(asString(userId)) || userBlocked.has(currentUserId)) {
+      return res.status(403).json({ message: 'Cannot add this user to the group' });
+    }
+
+    group.members.push(userId);
+    await group.save();
+
+    const updatedGroup = await emitGroupUpdate(groupId, currentUserId, [userId]);
+    emitToUser(userId, 'group:created', { group: mapGroup(updatedGroup, userId) });
+
+    return res.status(200).json({
+      message: 'User added',
+      group: mapGroup(updatedGroup, currentUserId)
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const removeGroupMember = async (req, res, next) => {
+  try {
+    const { groupId } = req.params;
+    const { userId } = req.body;
+    const currentUserId = asString(req.user._id);
+
+    if (!mongoose.Types.ObjectId.isValid(groupId) || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: 'Invalid group or user id' });
+    }
+
+    const group = await populateGroupForAdmin(groupId, currentUserId);
+    if (!group) {
+      const memberGroup = await populateGroup(groupId);
+      if (memberGroup && ensureGroupMembership(memberGroup, currentUserId)) {
+        return res.status(403).json({ message: 'Only admin can remove members' });
+      }
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    if (asString(userId) === currentUserId) {
+      return res.status(400).json({ message: 'Admins cannot remove themselves' });
+    }
+
+    if (!ensureGroupMembership(group, userId)) {
+      return res.status(404).json({ message: 'User is not a member of this group' });
+    }
+
+    group.members = (group.members || []).filter((member) => toIdString(member) !== asString(userId));
+    group.admin = getAdminIds(group).filter((adminId) => adminId !== asString(userId));
+    await group.save();
+
+    const updatedGroup = await emitGroupUpdate(groupId, currentUserId, [userId]);
+    emitToUser(userId, 'groupRemoved', { groupId: asString(groupId) });
+
+    return res.status(200).json({
+      message: 'User removed',
+      group: mapGroup(updatedGroup, currentUserId)
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const makeGroupAdmin = async (req, res, next) => {
+  try {
+    const { groupId } = req.params;
+    const { userId } = req.body;
+    const currentUserId = asString(req.user._id);
+
+    if (!mongoose.Types.ObjectId.isValid(groupId) || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: 'Invalid group or user id' });
+    }
+
+    const group = await populateGroupForAdmin(groupId, currentUserId);
+    if (!group) {
+      const memberGroup = await populateGroup(groupId);
+      if (memberGroup && ensureGroupMembership(memberGroup, currentUserId)) {
+        return res.status(403).json({ message: 'Only admin can update admins' });
+      }
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    if (!ensureGroupMembership(group, userId)) {
+      return res.status(404).json({ message: 'User is not a member of this group' });
+    }
+
+    if (isGroupAdmin(group, userId)) {
+      return res.status(400).json({ message: 'User is already an admin' });
+    }
+
+    group.admin = [...getAdminIds(group), asString(userId)];
+    await group.save();
+
+    const updatedGroup = await emitGroupUpdate(groupId, currentUserId, [userId]);
+
+    return res.status(200).json({
+      message: 'Admin updated',
+      group: mapGroup(updatedGroup, currentUserId)
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const removeGroupAdmin = async (req, res, next) => {
+  try {
+    const { groupId } = req.params;
+    const { userId } = req.body;
+    const currentUserId = asString(req.user._id);
+
+    if (!mongoose.Types.ObjectId.isValid(groupId) || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: 'Invalid group or user id' });
+    }
+
+    const group = await populateGroupForAdmin(groupId, currentUserId);
+    if (!group) {
+      const memberGroup = await populateGroup(groupId);
+      if (memberGroup && ensureGroupMembership(memberGroup, currentUserId)) {
+        return res.status(403).json({ message: 'Only admin can update admins' });
+      }
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    if (!isGroupAdmin(group, userId)) {
+      return res.status(400).json({ message: 'User is not an admin' });
+    }
+
+    const nextAdmins = getAdminIds(group).filter((adminId) => adminId !== asString(userId));
+    if (nextAdmins.length === 0) {
+      return res.status(400).json({ message: 'Group must have at least one admin' });
+    }
+
+    group.admin = nextAdmins;
+    await group.save();
+
+    const updatedGroup = await emitGroupUpdate(groupId, currentUserId, [userId]);
+
+    return res.status(200).json({
+      message: 'Admin updated',
+      group: mapGroup(updatedGroup, currentUserId)
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteGroup = async (req, res, next) => {
+  try {
+    const { groupId } = req.params;
+    const currentUserId = asString(req.user._id);
+
+    if (!mongoose.Types.ObjectId.isValid(groupId)) {
+      return res.status(400).json({ message: 'Invalid group id' });
+    }
+
+    const group = await populateGroupForAdmin(groupId, currentUserId);
+    if (!group) {
+      const memberGroup = await populateGroup(groupId);
+      if (memberGroup && ensureGroupMembership(memberGroup, currentUserId)) {
+        return res.status(403).json({ message: 'Only admin can delete groups' });
+      }
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    const memberIds = (group.members || []).map((member) => toIdString(member));
+
+    await Message.deleteMany({ groupId });
+    await Group.deleteOne({ _id: groupId });
+
+    for (const memberId of memberIds) {
+      emitToUser(memberId, 'groupRemoved', { groupId: asString(groupId) });
+    }
+
+    return res.status(200).json({ message: 'Group deleted', groupId: asString(groupId) });
   } catch (error) {
     next(error);
   }

@@ -16,11 +16,13 @@ const groupSchema = new mongoose.Schema(
         required: true
       }
     ],
-    admin: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true
-    },
+    admin: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+      }
+    ],
     groupPic: {
       type: String,
       default: ''

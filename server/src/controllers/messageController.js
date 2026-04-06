@@ -5,6 +5,53 @@ import mongoose from 'mongoose';
 
 const hasUserId = (list, userId) => (list || []).some((id) => String(id) === String(userId));
 
+const formatRecentMessageTime = (date) => new Date(date).toLocaleString([], {
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit'
+});
+
+export const getRecentMessages = async (req, res, next) => {
+  try {
+    const currentUserId = req.user?._id;
+
+    if (!currentUserId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    const messages = await Message.find({
+      groupId: null,
+      $or: [
+        { sender: currentUserId },
+        { receiver: currentUserId }
+      ]
+    })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate('sender', 'username profilePic')
+      .populate('receiver', 'username profilePic');
+
+    const items = messages.map((message) => {
+      const isSender = String(message.sender?._id) === String(currentUserId);
+      const counterpart = isSender ? message.receiver : message.sender;
+      const fallbackName = isSender ? 'Unknown recipient' : 'Unknown sender';
+
+      return {
+        _id: message._id,
+        title: counterpart?.username || fallbackName,
+        preview: message.text?.trim() || (message.image ? 'Shared an image' : 'Started a conversation'),
+        timeLabel: formatRecentMessageTime(message.createdAt),
+        direction: isSender ? 'sent' : 'received'
+      };
+    });
+
+    res.status(200).json({ items });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getMessages = async (req, res, next) => {
   try {
     const { userId } = req.params;

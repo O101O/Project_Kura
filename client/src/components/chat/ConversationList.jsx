@@ -1,5 +1,6 @@
-import { ChevronDown, MessageSquare, Phone, Plus, Search, Settings, Star, UserPlus, Users, Users2 } from 'lucide-react';
+import { ChevronDown, Plus, Search, UserPlus, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import SidebarRail from '../layout/SidebarRail';
 
 const RelationshipAction = ({ user, onSendFriendRequest, onRespondRequest, requestActionLoading }) => {
   const isLoading = Boolean(requestActionLoading[user._id]);
@@ -72,7 +73,7 @@ const ConversationList = ({
   onToggleRequests,
   onRespondRequest,
   requestActionLoading,
-  onOpenSettings,
+  settingsState,
   onOpenCreateGroup
 }) => {
   const pendingCount = pendingRequests.length;
@@ -94,17 +95,7 @@ const ConversationList = ({
   return (
     <aside className="kura-card h-full overflow-hidden p-4 lg:p-5">
       <div className="flex h-full min-h-0 gap-4">
-        <nav className="hidden w-11 shrink-0 flex-col items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/70 py-3 dark:border-slate-700 dark:bg-slate-800/70 lg:flex">
-          <button className="kura-icon-btn p-2"><MessageSquare size={14} /></button>
-          <button className="kura-icon-btn p-2"><Phone size={14} /></button>
-          <button className="kura-icon-btn p-2"><Users2 size={14} /></button>
-          <button className="kura-icon-btn p-2"><Star size={14} /></button>
-          <div className="mt-auto">
-            <button className="kura-icon-btn p-2" onClick={onOpenSettings}>
-              <Settings size={14} />
-            </button>
-          </div>
-        </nav>
+        <SidebarRail settingsState={settingsState} />
 
         <div className="flex min-w-0 min-h-0 flex-1 flex-col">
           <div className="mb-4 flex items-start justify-between">

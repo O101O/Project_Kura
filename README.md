@@ -66,11 +66,6 @@ npm run dev
 npm run seed --prefix server
 ```
 
-Demo users (password for all: `password123`):
-
-- `alice@kura.dev`
-- `bob@kura.dev`
-- `clara@kura.dev`
 
 ## API Summary
 

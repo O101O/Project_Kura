@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { protect } from '../middleware/authMiddleware.js';
-import { upload } from '../middleware/uploadMiddleware.js';
+import { messageUpload, upload } from '../middleware/uploadMiddleware.js';
 import {
   addGroupMember,
   createGroup,
@@ -24,6 +24,9 @@ router.post('/:groupId/make-admin', makeGroupAdmin);
 router.post('/:groupId/remove-admin', removeGroupAdmin);
 router.delete('/:groupId', deleteGroup);
 router.get('/:id/messages', getGroupMessages);
-router.post('/message', upload.single('image'), sendGroupMessage);
+router.post('/message', messageUpload.fields([
+  { name: 'file', maxCount: 1 },
+  { name: 'image', maxCount: 1 }
+]), sendGroupMessage);
 
 export default router;

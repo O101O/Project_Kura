@@ -45,6 +45,32 @@ select {
   @apply transition-all duration-200;
 }
 
+.EmojiPickerReact {
+  --epr-bg-color: rgba(255, 255, 255, 0.98);
+  --epr-category-label-bg-color: rgba(248, 250, 252, 0.92);
+  --epr-text-color: #0f172a;
+  --epr-hover-bg-color: rgba(99, 102, 241, 0.08);
+  --epr-focus-bg-color: rgba(99, 102, 241, 0.14);
+  --epr-search-border-color: rgba(148, 163, 184, 0.4);
+  --epr-search-input-bg-color: #ffffff;
+  --epr-picker-border-radius: 1rem;
+  --epr-shadow: 0 24px 60px -24px rgba(15, 23, 42, 0.38);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.dark .EmojiPickerReact {
+  --epr-bg-color: rgba(15, 23, 42, 0.97);
+  --epr-category-label-bg-color: rgba(15, 23, 42, 0.92);
+  --epr-text-color: #e2e8f0;
+  --epr-search-input-bg-color: rgba(15, 23, 42, 0.96);
+  --epr-search-border-color: rgba(71, 85, 105, 0.9);
+  border-color: rgba(51, 65, 85, 0.95);
+}
+
+.emoji-picker-popup {
+  backdrop-filter: blur(12px);
+}
+
 @layer components {
   .kura-card {
     @apply rounded-2xl border border-white/70 bg-white/95 shadow-soft backdrop-blur dark:border-slate-700/80 dark:bg-slate-900/90;

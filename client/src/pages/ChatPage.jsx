@@ -9,6 +9,8 @@ import ChatArea from '../components/chat/ChatArea';
 import ProfilePanel from '../components/chat/ProfilePanel';
 import SettingsPanel from '../components/settings/SettingsPanel';
 
+const getId = (value) => String(value?._id || value || '');
+
 const ChatPage = () => {
   const { user, setUser, logout } = useAuth();
   const { socket, onlineUsers } = useSocket(user?._id);
@@ -33,6 +35,8 @@ const ChatPage = () => {
   const [deletedChatIds, setDeletedChatIds] = useState([]);
   const [profileActionLoading, setProfileActionLoading] = useState(false);
   const [groupActionLoading, setGroupActionLoading] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [editingMessage, setEditingMessage] = useState(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
@@ -49,6 +53,43 @@ const ChatPage = () => {
   const isSettingsRoute = location.pathname === '/settings';
   const settingsState = useMemo(() => ({ from: location.pathname }), [location.pathname]);
   const settingsReturnTo = location.state?.from || '/chat';
+
+  const belongsToSelectedChat = useCallback((message, chat = selectedChat) => {
+    if (!chat || !message) {
+      return false;
+    }
+
+    if (chat.type === 'group') {
+      return String(getId(message.groupId)) === String(chat._id);
+    }
+
+    const senderId = getId(message.sender);
+    const receiverId = getId(message.receiver);
+    const currentUserId = String(user?._id || '');
+
+    return (
+      (senderId === currentUserId && receiverId === String(chat._id)) ||
+      (senderId === String(chat._id) && receiverId === currentUserId)
+    );
+  }, [selectedChat, user?._id]);
+
+  const upsertMessage = useCallback((incomingMessage) => {
+    setMessages((prev) => {
+      const existingIndex = prev.findIndex((message) => message._id === incomingMessage._id);
+      if (existingIndex === -1) {
+        return [...prev, incomingMessage];
+      }
+
+      const next = [...prev];
+      next[existingIndex] = incomingMessage;
+      return next;
+    });
+  }, []);
+
+  const resetComposerState = useCallback(() => {
+    setReplyingTo(null);
+    setEditingMessage(null);
+  }, []);
 
   const showFeedback = useCallback((message, duration = 2000) => {
     if (feedbackTimerRef.current) {
@@ -181,13 +222,15 @@ const ChatPage = () => {
   useEffect(() => {
     if (selectedChat?._id) {
       fetchMessages(selectedChat);
+      resetComposerState();
       if (selectedChat.type === 'direct') {
         api.patch(`/messages/seen/${selectedChat._id}`).catch(() => {});
       }
     } else {
       setMessages([]);
+      resetComposerState();
     }
-  }, [selectedChat, fetchMessages]);
+  }, [selectedChat, fetchMessages, resetComposerState]);
 
   useEffect(() => {
     if (!socket) {
@@ -279,13 +322,13 @@ const ChatPage = () => {
     }
 
     const onNewMessage = (incomingMessage) => {
-      const isCurrentChat = selectedChat?.type === 'direct' && incomingMessage.sender === selectedChat._id;
+      const isCurrentChat = selectedChat?.type === 'direct' && belongsToSelectedChat(incomingMessage);
       if (isCurrentChat) {
-        setMessages((prev) => [...prev, incomingMessage]);
+        upsertMessage(incomingMessage);
         return;
       }
 
-      const senderFriend = friends.find((friend) => friend._id === incomingMessage.sender);
+      const senderFriend = friends.find((friend) => friend._id === getId(incomingMessage.sender));
       if (senderFriend && !senderFriend.isMuted && user?.notifications?.messages) {
         showFeedback(`New message from ${senderFriend.username}`, 1800);
       }
@@ -308,7 +351,7 @@ const ChatPage = () => {
       const currentGroup = selectedChat?.type === 'group' ? selectedChat._id : null;
 
       if (currentGroup && String(messageGroupId) === String(currentGroup)) {
-        setMessages((prev) => prev.some((message) => message._id === incomingMessage._id) ? prev : [...prev, incomingMessage]);
+        upsertMessage(incomingMessage);
         return;
       }
 
@@ -318,18 +361,51 @@ const ChatPage = () => {
       }
     };
 
+    const onMessageReaction = (updatedMessage) => {
+      if (belongsToSelectedChat(updatedMessage)) {
+        upsertMessage(updatedMessage);
+      }
+    };
+
+    const onMessageEdited = (updatedMessage) => {
+      if (belongsToSelectedChat(updatedMessage)) {
+        upsertMessage(updatedMessage);
+      }
+    };
+
+    const onMessageDeleted = ({ messageId, groupId, sender, receiver }) => {
+      const isCurrentDirectChat = selectedChat?.type === 'direct' && (
+        String(selectedChat._id) === String(receiver) ||
+        String(selectedChat._id) === String(sender)
+      );
+      const isCurrentGroupChat = selectedChat?.type === 'group' && String(selectedChat._id) === String(groupId);
+
+      if (isCurrentDirectChat || isCurrentGroupChat) {
+        setMessages((prev) => prev.filter((message) => message._id !== messageId));
+      }
+
+      setReplyingTo((prev) => (prev?.messageId === messageId ? null : prev));
+      setEditingMessage((prev) => (prev?._id === messageId ? null : prev));
+    };
+
     socket.on('message:new', onNewMessage);
     socket.on('newGroupMessage', onNewGroupMessage);
+    socket.on('message:reaction', onMessageReaction);
+    socket.on('message:edited', onMessageEdited);
+    socket.on('message:deleted', onMessageDeleted);
     socket.on('typing:start', onTypingStart);
     socket.on('typing:stop', onTypingStop);
 
     return () => {
       socket.off('message:new', onNewMessage);
       socket.off('newGroupMessage', onNewGroupMessage);
+      socket.off('message:reaction', onMessageReaction);
+      socket.off('message:edited', onMessageEdited);
+      socket.off('message:deleted', onMessageDeleted);
       socket.off('typing:start', onTypingStart);
       socket.off('typing:stop', onTypingStop);
     };
-  }, [socket, selectedChat, friends, groups, showFeedback, user?.notifications?.messages]);
+  }, [socket, selectedChat, friends, groups, showFeedback, user?.notifications?.messages, belongsToSelectedChat, upsertMessage]);
 
   useEffect(() => {
     if (!socket || !selectedChat || selectedChat.type !== 'direct') {
@@ -372,22 +448,33 @@ const ChatPage = () => {
     }
 
     try {
-      const { data } = selectedChat.type === 'group'
-        ? await api.post('/group/message', {
-          groupId: selectedChat._id,
-          text: draft
-        })
-        : await api.post('/messages', {
-          receiverId: selectedChat._id,
+      if (editingMessage?._id) {
+        const { data } = await api.put(`/messages/${editingMessage._id}`, {
           text: draft
         });
+        upsertMessage(data.message);
+      } else {
+        const payload = selectedChat.type === 'group'
+          ? {
+            groupId: selectedChat._id,
+            text: draft,
+            replyTo: replyingTo
+          }
+          : {
+            receiverId: selectedChat._id,
+            text: draft,
+            replyTo: replyingTo
+          };
 
-      setMessages((prev) => [...prev, data.message]);
-      if (selectedChat.type === 'direct') {
-        socket?.emit('message:send', { to: selectedChat._id, message: data.message });
+        const { data } = selectedChat.type === 'group'
+          ? await api.post('/group/message', payload)
+          : await api.post('/messages', payload);
+
+        upsertMessage(data.message);
       }
       setDraft('');
       setTyping(false);
+      resetComposerState();
       if (selectedChat.type === 'direct') {
         socket?.emit('typing:stop', { from: user._id, to: selectedChat._id });
       }
@@ -401,30 +488,79 @@ const ChatPage = () => {
       return;
     }
 
-    const dataForm = new FormData();
+    const selectedFile = event.target.files[0];
+    const formData = new FormData();
     if (selectedChat.type === 'group') {
-      dataForm.append('groupId', selectedChat._id);
+      formData.append('groupId', selectedChat._id);
     } else {
-      dataForm.append('receiverId', selectedChat._id);
+      formData.append('receiverId', selectedChat._id);
     }
-    dataForm.append('text', draft.trim());
-    dataForm.append('image', event.target.files[0]);
+    formData.append('message', draft.trim());
+    formData.append('file', selectedFile);
+    if (replyingTo) {
+      formData.append('replyTo', JSON.stringify(replyingTo));
+    }
 
     try {
-      const { data } = await api.post(selectedChat.type === 'group' ? '/group/message' : '/messages', dataForm, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const { data } = await api.post(
+        selectedChat.type === 'group' ? '/group/message' : '/messages',
+        formData
+      );
 
-      setMessages((prev) => [...prev, data.message]);
-      if (selectedChat.type === 'direct') {
-        socket?.emit('message:send', { to: selectedChat._id, message: data.message });
-      }
+      upsertMessage(data.message);
       setDraft('');
+      setTyping(false);
+      resetComposerState();
       event.target.value = '';
     } catch (error) {
       showFeedback(error.response?.data?.message || 'Failed to upload image', 2000);
     }
   };
+
+  const handleReplyToMessage = useCallback((message) => {
+    const senderName = getId(message.sender) === String(user?._id) ? 'You' : (message.sender?.username || selectedChat?.username || selectedChat?.name || 'Unknown');
+    setReplyingTo({
+      messageId: message._id,
+      text: (message.text || message.attachmentName || 'Attachment').slice(0, 120),
+      sender: senderName
+    });
+    setEditingMessage(null);
+  }, [selectedChat, user?._id]);
+
+  const handleStartEditMessage = useCallback((message) => {
+    setEditingMessage(message);
+    setReplyingTo(null);
+    setDraft(message.text || '');
+  }, []);
+
+  const handleCancelComposerAction = useCallback(() => {
+    if (editingMessage) {
+      setDraft('');
+    }
+    resetComposerState();
+  }, [editingMessage, resetComposerState]);
+
+  const handleReactToMessage = useCallback(async (messageId, emoji) => {
+    try {
+      const { data } = await api.post(`/messages/${messageId}/react`, { emoji });
+      upsertMessage(data.message);
+    } catch (error) {
+      showFeedback(error.response?.data?.message || 'Failed to react to message', 2000);
+    }
+  }, [showFeedback, upsertMessage]);
+
+  const handleDeleteMessage = useCallback(async (messageId) => {
+    setMessages((prev) => prev.filter((message) => message._id !== messageId));
+    setReplyingTo((prev) => (prev?.messageId === messageId ? null : prev));
+    setEditingMessage((prev) => (prev?._id === messageId ? null : prev));
+
+    try {
+      await api.delete(`/messages/${messageId}`);
+    } catch (error) {
+      showFeedback(error.response?.data?.message || 'Failed to unsend message', 2000);
+      fetchMessages(selectedChat);
+    }
+  }, [fetchMessages, selectedChat, showFeedback]);
 
   const respondToRequest = async (requesterId, action) => {
     try {
@@ -556,7 +692,7 @@ const ChatPage = () => {
 
     try {
       setProfileActionLoading(true);
-      await api.delete(`/messages/${selectedChat._id}`);
+      await api.delete(`/messages/chat/${selectedChat._id}`);
       setDeletedChatIds((prev) => prev.includes(selectedChat._id) ? prev : [...prev, selectedChat._id]);
       setMessages([]);
       setSelectedChat(null);
@@ -586,9 +722,7 @@ const ChatPage = () => {
         formData.append('groupPic', groupForm.groupPic);
       }
 
-      const { data } = await api.post('/group/create', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const { data } = await api.post('/group/create', formData);
 
       setGroups((prev) => prev.some((group) => group._id === data.group._id) ? prev : [data.group, ...prev]);
       setSelectedChat(data.group);
@@ -731,6 +865,14 @@ const ChatPage = () => {
               onBack={selectedChat ? () => setMobileView('list') : null}
               canMessage={canMessage}
               blockedMessage={blockedMessage}
+              currentUserId={user?._id}
+              replyingTo={replyingTo}
+              editingMessage={editingMessage}
+              onReplyToMessage={handleReplyToMessage}
+              onStartEditMessage={handleStartEditMessage}
+              onCancelComposerAction={handleCancelComposerAction}
+              onReactToMessage={handleReactToMessage}
+              onDeleteMessage={handleDeleteMessage}
             />
           </div>
           <ProfilePanel

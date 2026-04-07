@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 import Group from '../models/Group.js';
 import Message from '../models/Message.js';
 import User from '../models/User.js';
+import { getUploadedFile } from '../middleware/uploadMiddleware.js';
+import { buildUploadUrl } from '../utils/uploadFile.js';
 import { uploadImageBuffer } from '../utils/uploadImage.js';
 import { emitToUser, emitPresenceUpdates, emitToGroup } from '../socket/socketState.js';
 
@@ -16,6 +18,45 @@ const getAdminIds = (group) => uniqueIds(
       : []
 );
 const isGroupAdmin = (group, userId) => getAdminIds(group).includes(asString(userId));
+const sanitizeText = (value) => String(value ?? '').trim();
+
+const normalizeReplyTo = (replyTo) => {
+  if (!replyTo) {
+    return null;
+  }
+
+  const rawReply = typeof replyTo === 'string' ? JSON.parse(replyTo) : replyTo;
+  const messageId = rawReply?.messageId;
+
+  if (!messageId || !mongoose.Types.ObjectId.isValid(messageId)) {
+    return null;
+  }
+
+  return {
+    messageId,
+    text: sanitizeText(rawReply.text).slice(0, 200),
+    sender: sanitizeText(rawReply.sender).slice(0, 80)
+  };
+};
+
+const hydrateReply = async (replyTo) => {
+  const normalizedReply = normalizeReplyTo(replyTo);
+
+  if (!normalizedReply) {
+    return null;
+  }
+
+  const referencedMessage = await Message.findById(normalizedReply.messageId).populate('sender', 'username');
+  if (!referencedMessage) {
+    return null;
+  }
+
+  return {
+    messageId: referencedMessage._id,
+    text: sanitizeText(referencedMessage.text || normalizedReply.text).slice(0, 200),
+    sender: referencedMessage.sender?.username || normalizedReply.sender || 'Unknown'
+  };
+};
 
 const mapGroup = (group, currentUserId) => ({
   _id: group._id,
@@ -219,13 +260,15 @@ export const getGroupMessages = async (req, res, next) => {
 
 export const sendGroupMessage = async (req, res, next) => {
   try {
-    const { groupId, text } = req.body;
+    const groupId = req.body.groupId;
+    const text = sanitizeText(req.body.text ?? req.body.message);
+    const uploadedFile = getUploadedFile(req);
 
     if (!groupId || !mongoose.Types.ObjectId.isValid(groupId)) {
       return res.status(400).json({ message: 'Valid groupId is required' });
     }
 
-    if (!text && !req.file) {
+    if (!text && !uploadedFile) {
       return res.status(400).json({ message: 'Message cannot be empty' });
     }
 
@@ -247,26 +290,21 @@ export const sendGroupMessage = async (req, res, next) => {
       return res.status(403).json({ message: 'A group member has blocked you' });
     }
 
-    let image = '';
-    if (req.file) {
-      try {
-        image = await uploadImageBuffer(req.file.buffer);
-      } catch (uploadError) {
-        if (uploadError.code === 'CLOUDINARY_NOT_CONFIGURED') {
-          return res.status(503).json({ message: 'Image upload is not configured. Add Cloudinary API keys.' });
-        }
-        if (uploadError.code === 'CLOUDINARY_UPLOAD_FAILED') {
-          return res.status(502).json({ message: 'Failed to upload image. Please try again.' });
-        }
-        throw uploadError;
-      }
-    }
+    const replyTo = await hydrateReply(req.body.replyTo);
+    const attachmentUrl = uploadedFile ? buildUploadUrl(req, uploadedFile.filename) : '';
+    const attachmentType = uploadedFile?.mimetype || '';
+    const attachmentName = uploadedFile?.originalname || '';
+    const image = attachmentType.startsWith('image/') ? attachmentUrl : '';
 
     const message = await Message.create({
       sender: req.user._id,
       groupId,
-      text: text || '',
-      image
+      text,
+      image,
+      attachmentUrl,
+      attachmentType,
+      attachmentName,
+      replyTo
     });
 
     const populatedMessage = await Message.findById(message._id).populate('sender', 'username profilePic');

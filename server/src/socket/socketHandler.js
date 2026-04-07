@@ -17,10 +17,6 @@ export const configureSocket = (io) => {
       emitToUser(to, 'typing:stop', { from });
     });
 
-    socket.on('message:send', ({ to, message }) => {
-      emitToUser(to, 'message:new', message);
-    });
-
     socket.on('group:join', (groupId) => {
       if (groupId) {
         socket.join(String(groupId));

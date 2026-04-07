@@ -1,9 +1,85 @@
 import Message from '../models/Message.js';
 import User from '../models/User.js';
-import { uploadImageBuffer } from '../utils/uploadImage.js';
+import Group from '../models/Group.js';
 import mongoose from 'mongoose';
+import { getUploadedFile } from '../middleware/uploadMiddleware.js';
+import { buildUploadUrl } from '../utils/uploadFile.js';
+import { emitToGroup, emitToUser } from '../socket/socketState.js';
 
 const hasUserId = (list, userId) => (list || []).some((id) => String(id) === String(userId));
+const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
+const sanitizeText = (value) => String(value ?? '').trim();
+
+const normalizeReplyTo = (replyTo) => {
+  if (!replyTo) {
+    return null;
+  }
+
+  const rawReply = typeof replyTo === 'string' ? JSON.parse(replyTo) : replyTo;
+  const messageId = rawReply?.messageId;
+
+  if (!messageId || !isValidObjectId(messageId)) {
+    return null;
+  }
+
+  return {
+    messageId,
+    text: sanitizeText(rawReply.text).slice(0, 200),
+    sender: sanitizeText(rawReply.sender).slice(0, 80)
+  };
+};
+
+const hydrateReply = async (replyTo) => {
+  const normalizedReply = normalizeReplyTo(replyTo);
+
+  if (!normalizedReply) {
+    return null;
+  }
+
+  const referencedMessage = await Message.findById(normalizedReply.messageId).populate('sender', 'username');
+  if (!referencedMessage) {
+    return null;
+  }
+
+  return {
+    messageId: referencedMessage._id,
+    text: sanitizeText(referencedMessage.text || normalizedReply.text).slice(0, 200),
+    sender: referencedMessage.sender?.username || normalizedReply.sender || 'Unknown'
+  };
+};
+
+const emitMessageEvent = (message, event, payload) => {
+  if (message?.groupId) {
+    emitToGroup(message.groupId?._id || message.groupId, event, payload);
+    return;
+  }
+
+  const senderId = message?.sender?._id || message?.sender;
+  const receiverId = message?.receiver?._id || message?.receiver;
+
+  if (senderId) {
+    emitToUser(senderId, event, payload);
+  }
+
+  if (receiverId && String(receiverId) !== String(senderId)) {
+    emitToUser(receiverId, event, payload);
+  }
+};
+
+const populateMessageById = (messageId) => Message.findById(messageId)
+  .populate('sender', 'username profilePic')
+  .populate('receiver', 'username profilePic');
+
+const canAccessMessage = async (message, userId) => {
+  const currentUserId = String(userId);
+
+  if (message.groupId) {
+    const group = await Group.findOne({ _id: message.groupId, members: userId }).select('_id');
+    return Boolean(group);
+  }
+
+  return String(message.sender) === currentUserId || String(message.receiver) === currentUserId;
+};
 
 const formatRecentMessageTime = (date) => new Date(date).toLocaleString([], {
   month: 'short',
@@ -105,11 +181,15 @@ export const getMessages = async (req, res, next) => {
 
 export const sendMessage = async (req, res, next) => {
   try {
-    const { receiverId, text } = req.body;
+    const receiverId = req.body.receiverId;
+    const text = String(req.body.text ?? req.body.message ?? '').trim();
     const senderId = req.user?._id;
+    const uploadedFile = getUploadedFile(req);
 
     console.log('sendMessage req.user:', req.user?._id);
     console.log('sendMessage receiverId:', receiverId);
+    console.log('sendMessage file:', uploadedFile?.filename || null);
+    console.log('sendMessage body:', req.body);
 
     if (!senderId) {
       return res.status(401).json({ message: 'Unauthorized' });
@@ -123,7 +203,7 @@ export const sendMessage = async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid receiver ID' });
     }
 
-    if (!text && !req.file) {
+    if (!text && !uploadedFile) {
       return res.status(400).json({ message: 'Message cannot be empty' });
     }
 
@@ -146,31 +226,172 @@ export const sendMessage = async (req, res, next) => {
       return res.status(403).json({ message: 'You cannot message this user' });
     }
 
-    let image = '';
-    if (req.file) {
-      try {
-        image = await uploadImageBuffer(req.file.buffer);
-      } catch (uploadError) {
-        if (uploadError.code === 'CLOUDINARY_NOT_CONFIGURED') {
-          return res.status(503).json({ message: 'Image upload is not configured. Add Cloudinary API keys.' });
-        }
-        if (uploadError.code === 'CLOUDINARY_UPLOAD_FAILED') {
-          return res.status(502).json({ message: 'Failed to upload image. Please try again.' });
-        }
-        throw uploadError;
-      }
-    }
+    const replyTo = await hydrateReply(req.body.replyTo);
+    const attachmentUrl = uploadedFile ? buildUploadUrl(req, uploadedFile.filename) : '';
+    const attachmentType = uploadedFile?.mimetype || '';
+    const attachmentName = uploadedFile?.originalname || '';
+    const image = attachmentType.startsWith('image/') ? attachmentUrl : '';
 
-    const message = await Message.create({
+    const createdMessage = await Message.create({
       sender: senderId,
       receiver: receiverId,
-      text: text || '',
-      image
+      text,
+      image,
+      attachmentUrl,
+      attachmentType,
+      attachmentName,
+      replyTo
     });
+
+    const message = await populateMessageById(createdMessage._id);
+    emitMessageEvent(message, 'message:new', message);
 
     res.status(201).json({ message });
   } catch (error) {
     console.error('Messages Error:', error);
+    return res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+export const reactToMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const emoji = sanitizeText(req.body.emoji);
+    const currentUserId = req.user?._id;
+
+    if (!currentUserId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid message id' });
+    }
+
+    if (!emoji) {
+      return res.status(400).json({ message: 'emoji is required' });
+    }
+
+    const message = await Message.findById(id);
+    if (!message) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+
+    const allowed = await canAccessMessage(message, currentUserId);
+    if (!allowed) {
+      return res.status(403).json({ message: 'You do not have access to this message' });
+    }
+
+    const currentUserIdString = String(currentUserId);
+    const existingIndex = (message.reactions || []).findIndex((reaction) => String(reaction.userId) === currentUserIdString);
+
+    if (existingIndex >= 0) {
+      if (message.reactions[existingIndex].emoji === emoji) {
+        message.reactions.splice(existingIndex, 1);
+      } else {
+        message.reactions[existingIndex].emoji = emoji;
+      }
+    } else {
+      message.reactions.push({ userId: currentUserId, emoji });
+    }
+
+    await message.save();
+
+    const populatedMessage = await populateMessageById(id);
+    emitMessageEvent(populatedMessage, 'message:reaction', populatedMessage);
+
+    return res.status(200).json({ message: populatedMessage });
+  } catch (error) {
+    console.error('React Message Error:', error);
+    return res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+export const editMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const text = sanitizeText(req.body.text);
+    const currentUserId = req.user?._id;
+
+    if (!currentUserId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid message id' });
+    }
+
+    if (!text) {
+      return res.status(400).json({ message: 'Message text is required' });
+    }
+
+    const message = await Message.findById(id);
+    if (!message) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+
+    const allowed = await canAccessMessage(message, currentUserId);
+    if (!allowed) {
+      return res.status(403).json({ message: 'You do not have access to this message' });
+    }
+
+    if (String(message.sender) !== String(currentUserId)) {
+      return res.status(403).json({ message: 'You can only edit your own messages' });
+    }
+
+    message.text = text;
+    message.isEdited = true;
+    await message.save();
+
+    const populatedMessage = await populateMessageById(id);
+    emitMessageEvent(populatedMessage, 'message:edited', populatedMessage);
+
+    return res.status(200).json({ message: populatedMessage });
+  } catch (error) {
+    console.error('Edit Message Error:', error);
+    return res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+export const deleteMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const currentUserId = req.user?._id;
+
+    if (!currentUserId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid message id' });
+    }
+
+    const message = await Message.findById(id);
+    if (!message) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+
+    const allowed = await canAccessMessage(message, currentUserId);
+    if (!allowed) {
+      return res.status(403).json({ message: 'You do not have access to this message' });
+    }
+
+    if (String(message.sender) !== String(currentUserId)) {
+      return res.status(403).json({ message: 'You can only unsend your own messages' });
+    }
+
+    const payload = {
+      messageId: String(message._id),
+      sender: String(message.sender),
+      receiver: message.receiver ? String(message.receiver) : null,
+      groupId: message.groupId ? String(message.groupId) : null
+    };
+
+    await Message.deleteOne({ _id: id });
+    emitMessageEvent(message, 'message:deleted', payload);
+
+    return res.status(200).json(payload);
+  } catch (error) {
+    console.error('Delete Message Error:', error);
     return res.status(500).json({ message: 'Server Error' });
   }
 };

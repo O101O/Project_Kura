@@ -1,17 +1,34 @@
 import mongoose from 'mongoose';
 import User from '../models/User.js';
-import { emitToUser } from '../socket/socketState.js';
+import { emitToUser, isUserOnline } from '../socket/socketState.js';
 
 const asStringSet = (arr) => new Set((arr || []).map((id) => String(id)));
 
 const publicUser = (user) => ({
   _id: user._id,
+  name: user.username,
   username: user.username,
   email: user.email,
   profilePic: user.profilePic,
   bio: user.bio,
   status: user.status
 });
+
+const getLiveStatus = (user, isBlocked = false, hasBlockedCurrentUser = false) => {
+  if (isBlocked || hasBlockedCurrentUser) {
+    return 'offline';
+  }
+
+  if (!isUserOnline(user._id)) {
+    return 'offline';
+  }
+
+  if (user.status === 'offline' || user.status === 'invisible') {
+    return user.status;
+  }
+
+  return 'online';
+};
 
 const establishFriendship = async (userAId, userBId) => {
   await Promise.all([
@@ -233,8 +250,24 @@ export const getPendingFriendRequests = async (req, res, next) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    const pending = (user.friendRequests || []).map((requester) => {
+      const status = getLiveStatus(requester);
+
+      return {
+        _id: requester._id,
+        name: requester.username,
+        username: requester.username,
+        email: requester.email,
+        profilePic: requester.profilePic,
+        bio: requester.bio,
+        status,
+        online: status === 'online',
+        isOnline: status === 'online'
+      };
+    });
+
     return res.status(200).json({
-      pending: user.friendRequests,
+      pending,
       pendingCount: user.friendRequests.length,
       sentRequests: (user.sentRequests || []).map((id) => String(id)),
       friends: (user.friends || []).map((id) => String(id))
@@ -258,14 +291,18 @@ export const getFriends = async (req, res, next) => {
     const mutedSet = new Set((user.mutedUsers || []).map((id) => String(id)));
     const friends = (user.friends || []).map((friend) => {
       const hasBlockedCurrentUser = (friend.blockedUsers || []).some((id) => String(id) === String(req.user._id));
+      const status = getLiveStatus(friend, blockedSet.has(String(friend._id)), hasBlockedCurrentUser);
 
       return {
         _id: friend._id,
+        name: friend.username,
         username: friend.username,
         email: friend.email,
         profilePic: friend.profilePic,
         bio: friend.bio,
-        status: blockedSet.has(String(friend._id)) || hasBlockedCurrentUser ? 'offline' : friend.status,
+        status,
+        online: status === 'online',
+        isOnline: status === 'online',
         isMuted: mutedSet.has(String(friend._id)),
         isBlocked: blockedSet.has(String(friend._id)),
         hasBlockedYou: hasBlockedCurrentUser,

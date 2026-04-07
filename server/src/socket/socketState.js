@@ -2,6 +2,7 @@ import User from '../models/User.js';
 
 const userSockets = new Map();
 const socketUsers = new Map();
+const visiblePresenceByViewer = new Map();
 let ioInstance = null;
 
 export const setIO = (io) => {
@@ -42,6 +43,8 @@ export const removeSocket = (socketId) => {
 };
 
 export const getOnlineUsers = () => Array.from(userSockets.keys());
+
+export const isUserOnline = (userId) => userSockets.has(String(userId));
 
 export const emitToUser = (userId, event, payload) => {
   const io = getIO();
@@ -89,12 +92,21 @@ const isVisibleToViewer = (viewer, candidate) => {
 
 export const emitPresenceUpdates = async () => {
   const onlineUserIds = getOnlineUsers();
+
   if (onlineUserIds.length === 0) {
+    visiblePresenceByViewer.clear();
     return;
   }
 
   const users = await User.find({ _id: { $in: onlineUserIds } }).select('friends blockedUsers status');
   const usersById = new Map(users.map((user) => [String(user._id), user]));
+  const viewerIds = new Set(onlineUserIds.map((id) => String(id)));
+
+  for (const existingViewerId of Array.from(visiblePresenceByViewer.keys())) {
+    if (!viewerIds.has(existingViewerId)) {
+      visiblePresenceByViewer.delete(existingViewerId);
+    }
+  }
 
   for (const onlineUserId of onlineUserIds) {
     const viewer = usersById.get(String(onlineUserId));
@@ -115,6 +127,22 @@ export const emitPresenceUpdates = async () => {
       return isVisibleToViewer(viewer, candidate);
     });
 
+    const previousVisibleUsers = visiblePresenceByViewer.get(String(onlineUserId)) || new Set();
+    const nextVisibleUsers = new Set(visibleOnlineUsers.map((id) => String(id)));
+
+    for (const candidateId of nextVisibleUsers) {
+      if (!previousVisibleUsers.has(candidateId)) {
+        emitToUser(onlineUserId, 'userOnline', candidateId);
+      }
+    }
+
+    for (const candidateId of previousVisibleUsers) {
+      if (!nextVisibleUsers.has(candidateId)) {
+        emitToUser(onlineUserId, 'userOffline', candidateId);
+      }
+    }
+
+    visiblePresenceByViewer.set(String(onlineUserId), nextVisibleUsers);
     emitToUser(onlineUserId, 'presence:update', visibleOnlineUsers);
   }
 };

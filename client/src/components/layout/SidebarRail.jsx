@@ -1,9 +1,8 @@
-import { Home, MessageSquare, Phone, Settings, Star, Users2 } from 'lucide-react';
+import { Home, MessageSquare, Phone, Settings, Star, Users } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const utilityIcons = [
   { id: 'calls', icon: Phone, label: 'Calls' },
-  { id: 'teams', icon: Users2, label: 'Teams' },
   { id: 'starred', icon: Star, label: 'Starred' }
 ];
 
@@ -13,7 +12,8 @@ const SidebarRail = ({ settingsState }) => {
 
   const navItems = [
     { id: 'dashboard', icon: Home, label: 'Home', path: '/dashboard' },
-    { id: 'chat', icon: MessageSquare, label: 'Chat', path: '/chat' }
+    { id: 'chat', icon: MessageSquare, label: 'Chat', path: '/chat' },
+    { id: 'contacts', icon: Users, label: 'Contacts', path: '/contacts' }
   ];
 
   const currentPath = location.pathname;

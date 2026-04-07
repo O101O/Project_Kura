@@ -18,9 +18,18 @@ export const useSocket = (userId) => {
       setOnlineUsers(users);
     });
 
+    nextSocket.on('userOnline', (nextUserId) => {
+      setOnlineUsers((prev) => prev.includes(nextUserId) ? prev : [...prev, nextUserId]);
+    });
+
+    nextSocket.on('userOffline', (nextUserId) => {
+      setOnlineUsers((prev) => prev.filter((user) => user !== nextUserId));
+    });
+
     return () => {
       nextSocket.disconnect();
       setSocket(null);
+      setOnlineUsers([]);
     };
   }, [userId]);
 

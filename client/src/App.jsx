@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import AuthPage from './pages/AuthPage';
 import ChatPage from './pages/ChatPage';
+import ContactsPage from './pages/ContactsPage';
 import Dashboard from './pages/Dashboard';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ProtectedRoute from './components/common/ProtectedRoute';
@@ -25,6 +26,14 @@ const App = () => {
         element={
           <ProtectedRoute>
             <ChatPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/contacts"
+        element={
+          <ProtectedRoute>
+            <ContactsPage />
           </ProtectedRoute>
         }
       />

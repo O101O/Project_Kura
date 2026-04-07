@@ -1,14 +1,31 @@
-import { CheckCircle2, Loader2, ShieldAlert, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import {
+  Bell,
+  CheckCircle2,
+  CircleHelp,
+  Loader2,
+  Lock,
+  Palette,
+  ShieldAlert,
+  TriangleAlert,
+  User,
+  UserRoundCog,
+  Workflow,
+  X
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import api from '../../utils/api';
 
 const tabs = [
-  { id: 'profile', label: 'Profile' },
-  { id: 'account', label: 'Account' },
-  { id: 'status', label: 'Status' },
-  { id: 'notifications', label: 'Notifications' },
-  { id: 'support', label: 'Support' },
-  { id: 'danger', label: 'Danger Zone' }
+  { id: 'profile', label: 'Profile', icon: User },
+  { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'appearance', label: 'Appearance', icon: Palette },
+  { id: 'privacy', label: 'Privacy', icon: Lock },
+  { id: 'integrations', label: 'Integrations', icon: Workflow },
+  { id: 'account', label: 'Account', icon: UserRoundCog },
+  { id: 'status', label: 'Status', icon: CircleHelp },
+  { id: 'support', label: 'Support', icon: CircleHelp },
+  { id: 'danger', label: 'Danger Zone', icon: TriangleAlert }
 ];
 
 const SectionCard = ({ title, subtitle, children, tone = 'default' }) => (
@@ -29,7 +46,7 @@ const SectionCard = ({ title, subtitle, children, tone = 'default' }) => (
 
 const Toggle = ({ checked, onChange, label, hint }) => (
   <label className="flex cursor-pointer items-center justify-between rounded-xl border border-slate-200/70 bg-slate-50/70 px-3 py-2.5 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800/70 dark:hover:bg-slate-800">
-    <span>
+    <span className="min-w-0 pr-3">
       <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{label}</p>
       {hint && <p className="text-xs text-slate-500 dark:text-slate-400">{hint}</p>}
     </span>
@@ -39,7 +56,7 @@ const Toggle = ({ checked, onChange, label, hint }) => (
         e.preventDefault();
         onChange(!checked);
       }}
-      className={`relative h-6 w-11 rounded-full transition-colors duration-200 ${
+      className={`relative h-6 w-11 shrink-0 overflow-hidden rounded-full transition-colors duration-200 ${
         checked ? 'bg-brand-600' : 'bg-slate-300 dark:bg-slate-600'
       }`}
       aria-pressed={checked}
@@ -54,6 +71,7 @@ const Toggle = ({ checked, onChange, label, hint }) => (
 );
 
 const SettingsPanel = ({ open, onClose, user, setUser, socket, onLogout }) => {
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
@@ -82,13 +100,21 @@ const SettingsPanel = ({ open, onClose, user, setUser, socket, onLogout }) => {
   const [supportForm, setSupportForm] = useState({ subject: '', description: '' });
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
-  const panelClass = useMemo(
-    () =>
-      `fixed right-0 top-0 z-50 h-full w-full max-w-md bg-white shadow-2xl transition-transform duration-300 ease-out dark:bg-slate-900 ${
-        open ? 'translate-x-0' : 'translate-x-full'
-      }`,
-    [open]
+  const avatarSrc = useMemo(
+    () => user?.profilePic || `https://api.dicebear.com/8.x/initials/svg?seed=${user?.username || 'User'}`,
+    [user?.profilePic, user?.username]
   );
+
+  useEffect(() => {
+    if (open && location.state?.tab) {
+      setActiveTab(location.state.tab);
+      return;
+    }
+
+    if (open) {
+      setActiveTab('profile');
+    }
+  }, [open, location.state]);
 
   const showToast = (message) => {
     setToast(message);
@@ -194,60 +220,98 @@ const SettingsPanel = ({ open, onClose, user, setUser, socket, onLogout }) => {
     }
   };
 
+  const renderPlaceholder = (title, description) => (
+    <SectionCard title={title} subtitle={description}>
+      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400">
+        This section is ready for the next settings update.
+      </div>
+    </SectionCard>
+  );
+
   return (
     <>
       <div
-        className={`fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-[1px] transition-opacity duration-300 ${
+        className={`fixed inset-0 z-40 bg-slate-950/35 backdrop-blur-[3px] transition-opacity duration-300 ${
           open ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
         }`}
         onClick={onClose}
       />
-      <aside className={panelClass}>
-        <div className="flex h-full flex-col">
-          <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 px-5 py-4 backdrop-blur dark:border-slate-700 dark:bg-slate-900/90">
-            <div className="flex items-center justify-between">
-              <div>
+      <div
+        className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-all duration-300 ${
+          open ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+      >
+        <div className="kura-card relative flex h-[min(82vh,720px)] w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/80 bg-white/95 shadow-[0_30px_90px_-24px_rgba(15,23,42,0.45)] dark:border-slate-700/80 dark:bg-slate-900/95 animate-fadeIn">
+          <aside className="hidden w-72 shrink-0 border-r border-slate-200/80 bg-gradient-to-b from-slate-50 via-white to-slate-100 px-5 py-6 dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 md:flex md:flex-col">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Settings</p>
+            <div className="mt-4 flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/90 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800/70">
+              <img src={avatarSrc} alt={user?.username || 'User'} className="h-11 w-11 rounded-2xl object-cover" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{user?.username || 'User'}</p>
+                <p className="truncate text-xs text-slate-500 dark:text-slate-400">{user?.email || 'No email available'}</p>
+              </div>
+            </div>
+
+            <nav className="mt-6 space-y-1.5">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-left text-sm font-medium transition-all ${
+                      activeTab === tab.id
+                        ? 'bg-gradient-to-r from-brand-700 to-blue-500 text-white shadow-lg shadow-indigo-200/70 dark:shadow-indigo-950/30'
+                        : 'text-slate-600 hover:bg-white hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+                    }`}
+                  >
+                    <Icon size={16} />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </aside>
+
+          <section className="flex min-w-0 flex-1 flex-col">
+            <header className="flex items-center justify-between border-b border-slate-200/80 px-5 py-4 dark:border-slate-700">
+              <div className="md:hidden">
+                <select
+                  value={activeTab}
+                  onChange={(e) => setActiveTab(e.target.value)}
+                  className="kura-input py-2"
+                >
+                  {tabs.map((tab) => (
+                    <option key={tab.id} value={tab.id}>{tab.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="hidden md:block">
                 <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Settings</h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">Manage your account preferences</p>
               </div>
               <button className="kura-icon-btn" onClick={onClose}>
                 <X size={18} />
               </button>
-            </div>
-          </header>
+            </header>
 
-          <div className="mx-4 mt-3 flex flex-wrap gap-2">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
-                  activeTab === tab.id
-                    ? 'bg-brand-600 text-white shadow-md shadow-indigo-200/70 dark:shadow-indigo-900/30'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+            {toast && (
+              <div className="mx-5 mt-4 animate-fadeIn rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
+                <span className="inline-flex items-center gap-2"><CheckCircle2 size={14} />{toast}</span>
+              </div>
+            )}
 
-          {toast && (
-            <div className="mx-4 mt-3 animate-fadeIn rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
-              <span className="inline-flex items-center gap-2"><CheckCircle2 size={14} />{toast}</span>
-            </div>
-          )}
-
-          <div className="mt-4 flex-1 space-y-4 overflow-y-auto px-4 pb-6">
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
             {activeTab === 'profile' && (
               <SectionCard title="Profile" subtitle="Update your public identity and avatar.">
                 <div className="flex items-center gap-3">
                   <img
-                    src={user?.profilePic || `https://api.dicebear.com/8.x/initials/svg?seed=${user?.username || 'User'}`}
+                    src={avatarSrc}
                     alt="profile"
-                    className="h-16 w-16 rounded-full object-cover ring-2 ring-brand-200 dark:ring-brand-900/40"
+                    className="h-20 w-20 rounded-full object-cover ring-2 ring-brand-200 dark:ring-brand-900/40"
                   />
-                  <label className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">
+                  <label className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">
                     Change avatar
                     <input
                       type="file"
@@ -266,14 +330,20 @@ const SettingsPanel = ({ open, onClose, user, setUser, socket, onLogout }) => {
                 <textarea
                   value={profileForm.bio}
                   onChange={(e) => setProfileForm((prev) => ({ ...prev, bio: e.target.value }))}
-                  className="kura-input min-h-24"
+                  className="kura-input min-h-28"
                   placeholder="Bio"
                 />
-                <button onClick={submitProfile} className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500">
+                <button onClick={submitProfile} className="rounded-xl bg-gradient-to-r from-brand-700 to-blue-500 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-200/60 hover:from-brand-600 hover:to-blue-400">
                   {loading ? 'Saving...' : 'Save Profile'}
                 </button>
               </SectionCard>
             )}
+
+            {activeTab === 'appearance' && renderPlaceholder('Appearance', 'Theme and visual personalization controls.')}
+
+            {activeTab === 'privacy' && renderPlaceholder('Privacy', 'Privacy visibility and personal safety settings.')}
+
+            {activeTab === 'integrations' && renderPlaceholder('Integrations', 'Third-party connections and workflow tools.')}
 
             {activeTab === 'account' && (
               <SectionCard title="Account" subtitle="Password and account security settings.">
@@ -299,7 +369,7 @@ const SettingsPanel = ({ open, onClose, user, setUser, socket, onLogout }) => {
                   className="kura-input"
                   placeholder="Confirm new password"
                 />
-                <button onClick={submitPassword} className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500">
+                <button onClick={submitPassword} className="rounded-xl bg-gradient-to-r from-brand-700 to-blue-500 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-200/60 hover:from-brand-600 hover:to-blue-400">
                   {loading ? 'Saving...' : 'Change Password'}
                 </button>
               </SectionCard>
@@ -307,8 +377,8 @@ const SettingsPanel = ({ open, onClose, user, setUser, socket, onLogout }) => {
 
             {activeTab === 'status' && (
               <SectionCard title="Status" subtitle="Control your availability visibility.">
-                <div className="grid grid-cols-2 gap-2">
-                  {['online', 'invisible'].map((value) => (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {['online', 'offline', 'invisible'].map((value) => (
                     <button
                       key={value}
                       onClick={() => setStatusValue(value)}
@@ -322,7 +392,7 @@ const SettingsPanel = ({ open, onClose, user, setUser, socket, onLogout }) => {
                     </button>
                   ))}
                 </div>
-                <button onClick={saveStatus} className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500">
+                <button onClick={saveStatus} className="rounded-xl bg-gradient-to-r from-brand-700 to-blue-500 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-200/60 hover:from-brand-600 hover:to-blue-400">
                   {loading ? 'Saving...' : 'Save Status'}
                 </button>
               </SectionCard>
@@ -348,7 +418,7 @@ const SettingsPanel = ({ open, onClose, user, setUser, socket, onLogout }) => {
                   label="Friend request alerts"
                   hint="Notify when someone sends a request"
                 />
-                <button onClick={saveNotifications} className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500">
+                <button onClick={saveNotifications} className="rounded-xl bg-gradient-to-r from-brand-700 to-blue-500 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-200/60 hover:from-brand-600 hover:to-blue-400">
                   {loading ? 'Saving...' : 'Save Preferences'}
                 </button>
               </SectionCard>
@@ -368,7 +438,7 @@ const SettingsPanel = ({ open, onClose, user, setUser, socket, onLogout }) => {
                   className="kura-input min-h-28"
                   placeholder="Describe the issue"
                 />
-                <button onClick={submitSupport} className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500">
+                <button onClick={submitSupport} className="rounded-xl bg-gradient-to-r from-brand-700 to-blue-500 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-200/60 hover:from-brand-600 hover:to-blue-400">
                   {loading ? 'Submitting...' : 'Submit Report'}
                 </button>
               </SectionCard>
@@ -387,15 +457,16 @@ const SettingsPanel = ({ open, onClose, user, setUser, socket, onLogout }) => {
                 </button>
               </SectionCard>
             )}
-          </div>
-
-          {loading && (
-            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-white/30 dark:bg-slate-900/30">
-              <Loader2 size={24} className="animate-spin text-brand-600" />
             </div>
-          )}
+
+            {loading && (
+              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-white/30 dark:bg-slate-900/30">
+                <Loader2 size={24} className="animate-spin text-brand-600" />
+              </div>
+            )}
+          </section>
         </div>
-      </aside>
+      </div>
 
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 px-4">

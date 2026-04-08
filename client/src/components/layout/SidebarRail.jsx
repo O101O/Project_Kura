@@ -1,5 +1,6 @@
 import { Home, MessageSquare, Phone, Settings, Star, Users } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { APP_ROUTES } from '../../utils/constants';
 
 const utilityIcons = [
   { id: 'calls', icon: Phone, label: 'Calls' },
@@ -11,15 +12,15 @@ const SidebarRail = ({ settingsState }) => {
   const navigate = useNavigate();
 
   const navItems = [
-    { id: 'dashboard', icon: Home, label: 'Home', path: '/dashboard' },
-    { id: 'chat', icon: MessageSquare, label: 'Chat', path: '/chat' },
-    { id: 'contacts', icon: Users, label: 'Contacts', path: '/contacts' }
+    { id: 'dashboard', icon: Home, label: 'Home', path: APP_ROUTES.dashboard },
+    { id: 'chat', icon: MessageSquare, label: 'Chat', path: APP_ROUTES.chat },
+    { id: 'contacts', icon: Users, label: 'Contacts', path: APP_ROUTES.contacts }
   ];
 
   const currentPath = location.pathname;
 
   return (
-    <nav className="hidden w-11 shrink-0 flex-col items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/70 py-3 dark:border-slate-700 dark:bg-slate-800/70 lg:flex">
+    <nav className="hidden w-11 shrink-0 flex-col items-center gap-3 rounded-2xl border border-brand-100/70 bg-white/60 py-3 backdrop-blur dark:border-slate-700 dark:bg-slate-800/70 lg:flex">
       {navItems.map(({ id, icon: Icon, label, path }) => {
         const isActive = currentPath === path;
 
@@ -32,7 +33,7 @@ const SidebarRail = ({ settingsState }) => {
             onClick={() => navigate(path)}
             className={`kura-icon-btn p-2 ${
               isActive
-                ? 'border-brand-200 bg-brand-50 text-brand-700 shadow-md shadow-indigo-200/40 dark:border-brand-900/60 dark:bg-brand-900/30 dark:text-brand-200 dark:shadow-indigo-950/20'
+                ? 'border-brand-200 bg-[linear-gradient(135deg,rgba(245,239,255,0.95),rgba(232,249,255,0.95))] text-brand-700 shadow-md shadow-cyan-200/30 dark:border-brand-900/60 dark:bg-brand-900/30 dark:text-brand-200 dark:shadow-indigo-950/20'
                 : ''
             }`}
           >
@@ -58,10 +59,10 @@ const SidebarRail = ({ settingsState }) => {
           type="button"
           aria-label="Settings"
           title="Settings"
-          onClick={() => navigate('/settings', { state: settingsState })}
+          onClick={() => navigate(APP_ROUTES.settings, { state: settingsState })}
           className={`kura-icon-btn p-2 ${
-            currentPath === '/settings'
-              ? 'border-brand-200 bg-brand-50 text-brand-700 shadow-md shadow-indigo-200/40 dark:border-brand-900/60 dark:bg-brand-900/30 dark:text-brand-200 dark:shadow-indigo-950/20'
+            currentPath === APP_ROUTES.settings
+              ? 'border-brand-200 bg-[linear-gradient(135deg,rgba(245,239,255,0.95),rgba(232,249,255,0.95))] text-brand-700 shadow-md shadow-cyan-200/30 dark:border-brand-900/60 dark:bg-brand-900/30 dark:text-brand-200 dark:shadow-indigo-950/20'
               : ''
           }`}
         >

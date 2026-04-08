@@ -8,6 +8,7 @@ import ConversationList from '../components/chat/ConversationList';
 import ChatArea from '../components/chat/ChatArea';
 import ProfilePanel from '../components/chat/ProfilePanel';
 import SettingsPanel from '../components/settings/SettingsPanel';
+import { APP_ROUTES } from '../utils/constants';
 
 const getId = (value) => String(value?._id || value || '');
 
@@ -50,9 +51,9 @@ const ChatPage = () => {
 
   const feedbackTimerRef = useRef(null);
   const latestSearchReqRef = useRef(0);
-  const isSettingsRoute = location.pathname === '/settings';
+  const isSettingsRoute = location.pathname === APP_ROUTES.settings;
   const settingsState = useMemo(() => ({ from: location.pathname }), [location.pathname]);
-  const settingsReturnTo = location.state?.from || '/chat';
+  const settingsReturnTo = location.state?.from || APP_ROUTES.chat;
 
   const belongsToSelectedChat = useCallback((message, chat = selectedChat) => {
     if (!chat || !message) {

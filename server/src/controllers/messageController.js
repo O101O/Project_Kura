@@ -133,9 +133,6 @@ export const getMessages = async (req, res, next) => {
     const { userId } = req.params;
     const senderId = req.user?._id;
 
-    console.log('getMessages req.user:', req.user?._id);
-    console.log('getMessages userId:', userId);
-
     if (!senderId) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
@@ -170,12 +167,9 @@ export const getMessages = async (req, res, next) => {
       ]
     }).sort({ createdAt: 1 });
 
-    console.log('getMessages result count:', messages.length);
-
     res.status(200).json({ messages });
   } catch (error) {
-    console.error('Messages Error:', error);
-    return res.status(500).json({ message: 'Server Error' });
+    next(error);
   }
 };
 
@@ -185,11 +179,6 @@ export const sendMessage = async (req, res, next) => {
     const text = String(req.body.text ?? req.body.message ?? '').trim();
     const senderId = req.user?._id;
     const uploadedFile = getUploadedFile(req);
-
-    console.log('sendMessage req.user:', req.user?._id);
-    console.log('sendMessage receiverId:', receiverId);
-    console.log('sendMessage file:', uploadedFile?.filename || null);
-    console.log('sendMessage body:', req.body);
 
     if (!senderId) {
       return res.status(401).json({ message: 'Unauthorized' });
@@ -248,12 +237,11 @@ export const sendMessage = async (req, res, next) => {
 
     res.status(201).json({ message });
   } catch (error) {
-    console.error('Messages Error:', error);
-    return res.status(500).json({ message: 'Server Error' });
+    next(error);
   }
 };
 
-export const reactToMessage = async (req, res) => {
+export const reactToMessage = async (req, res, next) => {
   try {
     const { id } = req.params;
     const emoji = sanitizeText(req.body.emoji);
@@ -301,12 +289,11 @@ export const reactToMessage = async (req, res) => {
 
     return res.status(200).json({ message: populatedMessage });
   } catch (error) {
-    console.error('React Message Error:', error);
-    return res.status(500).json({ message: 'Server Error' });
+    next(error);
   }
 };
 
-export const editMessage = async (req, res) => {
+export const editMessage = async (req, res, next) => {
   try {
     const { id } = req.params;
     const text = sanitizeText(req.body.text);
@@ -347,12 +334,11 @@ export const editMessage = async (req, res) => {
 
     return res.status(200).json({ message: populatedMessage });
   } catch (error) {
-    console.error('Edit Message Error:', error);
-    return res.status(500).json({ message: 'Server Error' });
+    next(error);
   }
 };
 
-export const deleteMessage = async (req, res) => {
+export const deleteMessage = async (req, res, next) => {
   try {
     const { id } = req.params;
     const currentUserId = req.user?._id;
@@ -391,8 +377,7 @@ export const deleteMessage = async (req, res) => {
 
     return res.status(200).json(payload);
   } catch (error) {
-    console.error('Delete Message Error:', error);
-    return res.status(500).json({ message: 'Server Error' });
+    next(error);
   }
 };
 
@@ -435,8 +420,7 @@ export const markSeen = async (req, res, next) => {
 
     res.status(200).json({ message: 'Messages marked as seen' });
   } catch (error) {
-    console.error('Messages Error:', error);
-    return res.status(500).json({ message: 'Server Error' });
+    next(error);
   }
 };
 
@@ -462,7 +446,6 @@ export const deleteChat = async (req, res, next) => {
 
     return res.status(200).json({ message: 'Chat deleted' });
   } catch (error) {
-    console.error('Messages Error:', error);
-    return res.status(500).json({ message: 'Server Error' });
+    next(error);
   }
 };

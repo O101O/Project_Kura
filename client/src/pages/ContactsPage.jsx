@@ -7,6 +7,7 @@ import TopBar from '../components/layout/TopBar';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../hooks/useSocket';
 import api from '../utils/api';
+import { APP_ROUTES } from '../utils/constants';
 
 const applyPresence = (users, onlineUsers) => users.map((user) => ({
   ...user,
@@ -164,7 +165,7 @@ const ContactsPage = () => {
 
         <section className="kura-card min-h-0 flex-1 overflow-hidden p-4 lg:p-5">
           <div className="flex h-full min-h-0 gap-4">
-            <SidebarRail settingsState={{ from: '/contacts' }} />
+            <SidebarRail settingsState={{ from: APP_ROUTES.contacts }} />
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto pr-1">
               <div className="rounded-[2rem] bg-gradient-to-r from-white via-slate-50 to-blue-50 p-5 shadow-inner shadow-slate-200/60 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
@@ -236,7 +237,7 @@ const ContactsPage = () => {
                   ) : (
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                       {visibleFriends.map((entry) => (
-                        <div key={entry._id} onClick={() => navigate('/chat', { state: { selectedChatId: entry._id } })} className="cursor-pointer">
+                        <div key={entry._id} onClick={() => navigate(APP_ROUTES.chat, { state: { selectedChatId: entry._id } })} className="cursor-pointer">
                           <UserCard user={entry} isFriend />
                         </div>
                       ))}

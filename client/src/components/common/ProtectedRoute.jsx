@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { APP_ROUTES } from '../../utils/constants';
 import Loader from './Loader';
 
 const ProtectedRoute = ({ children }) => {
@@ -10,7 +11,7 @@ const ProtectedRoute = ({ children }) => {
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to={APP_ROUTES.auth} replace />;
   }
 
   return children;

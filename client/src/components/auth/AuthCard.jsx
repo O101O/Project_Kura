@@ -85,7 +85,7 @@ const AuthCard = ({ mode, onSubmit, onToggle, loading, error }) => {
               minLength={6}
             />
 
-            <label className="flex cursor-pointer items-center justify-between rounded-2xl border border-dashed border-slate-300 bg-white/70 px-4 py-3 text-sm text-slate-600 hover:border-brand-300 hover:bg-brand-50/40">
+            <label className="flex cursor-pointer items-center justify-between rounded-2xl border border-dashed border-brand-200 bg-white/70 px-4 py-3 text-sm text-slate-600 hover:border-brand-400 hover:bg-brand-50/60">
               <span className="inline-flex items-center gap-2">
                 <Camera size={15} />
                 {form.profilePic ? form.profilePic.name : 'Upload profile picture'}
@@ -108,13 +108,13 @@ const AuthCard = ({ mode, onSubmit, onToggle, loading, error }) => {
           <button
             type="submit"
             disabled={loading}
-            className="inline-flex min-w-[120px] items-center justify-center rounded-full bg-[#1d66f2] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-200/80 hover:-translate-y-0.5 hover:bg-[#1358db] disabled:cursor-not-allowed disabled:opacity-70"
+            className="inline-flex min-w-[120px] items-center justify-center rounded-full bg-[linear-gradient(135deg,#8d31ff_0%,#456cff_58%,#1dd9d2_100%)] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-200/50 hover:-translate-y-0.5 hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {loading ? 'Please wait...' : mode === 'login' ? 'Log in' : 'Create Account'}
           </button>
 
           {mode === 'login' && (
-            <Link to="/forgot-password" className="inline-flex items-center gap-1.5 text-sm font-medium text-[#1d66f2] hover:text-[#1358db]">
+            <Link to="/forgot-password" className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-500">
               <ShieldCheck size={14} />
               Forgotten your password?
             </Link>
@@ -124,7 +124,7 @@ const AuthCard = ({ mode, onSubmit, onToggle, loading, error }) => {
 
       <div className="mt-6 flex items-center justify-between text-sm">
         <label className="inline-flex items-center gap-2 text-slate-500">
-          <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-[#1d66f2] focus:ring-[#1d66f2]" />
+          <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500" />
           Keep me signed in
         </label>
         <button type="button" className="text-slate-500 hover:text-slate-800" onClick={onToggle}>

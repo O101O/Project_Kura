@@ -1,8 +1,8 @@
 import fs from 'fs';
-import path from 'path';
 import multer from 'multer';
+import { getUploadsDir } from '../config/env.js';
 
-const uploadsDir = path.resolve(process.cwd(), 'uploads');
+const uploadsDir = getUploadsDir();
 
 fs.mkdirSync(uploadsDir, { recursive: true });
 

@@ -1,13 +1,14 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { STORAGE_KEYS } from '../utils/constants';
 
 const ThemeContext = createContext(null);
 
 export const ThemeProvider = ({ children }) => {
-  const [theme, setTheme] = useState(localStorage.getItem('kura_theme') || 'light');
+  const [theme, setTheme] = useState(localStorage.getItem(STORAGE_KEYS.theme) || 'light');
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
-    localStorage.setItem('kura_theme', theme);
+    localStorage.setItem(STORAGE_KEYS.theme, theme);
   }, [theme]);
 
   const toggleTheme = () => {

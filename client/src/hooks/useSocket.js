@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
+import { SOCKET_URL } from '../utils/constants';
 
 export const useSocket = (userId) => {
   const [socket, setSocket] = useState(null);
@@ -10,7 +11,7 @@ export const useSocket = (userId) => {
       return;
     }
 
-    const nextSocket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000');
+    const nextSocket = io(SOCKET_URL);
     setSocket(nextSocket);
     nextSocket.emit('user:online', userId);
 

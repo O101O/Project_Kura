@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import { getClientUrl } from '../config/env.js';
 import User from '../models/User.js';
 import { generateToken } from '../utils/generateToken.js';
 import { uploadImageBuffer } from '../utils/uploadImage.js';
@@ -131,7 +132,7 @@ export const forgotPassword = async (req, res, next) => {
     user.resetTokenExpire = Date.now() + 15 * 60 * 1000;
     await user.save({ validateBeforeSave: false });
 
-    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const clientUrl = getClientUrl();
     const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
 
     return res.status(200).json({

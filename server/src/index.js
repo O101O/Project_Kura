@@ -3,9 +3,9 @@ import http from 'http';
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
-import path from 'path';
 import { Server } from 'socket.io';
 import { connectDB } from './config/db.js';
+import { getClientUrl, getPort, getUploadsDir } from './config/env.js';
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
@@ -22,7 +22,7 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
-const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+const clientUrl = getClientUrl();
 const localOriginPattern = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/;
 
 const corsOrigin = (origin, callback) => {
@@ -51,7 +51,7 @@ app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
-app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
+app.use('/uploads', express.static(getUploadsDir()));
 
 app.get('/api/health', (_req, res) => {
   res.status(200).json({ status: 'ok' });
@@ -70,7 +70,7 @@ app.use('/api/support', supportRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
-const port = process.env.PORT || 5000;
+const port = getPort();
 
 connectDB()
   .then(() => {

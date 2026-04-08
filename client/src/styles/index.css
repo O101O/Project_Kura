@@ -8,10 +8,32 @@
 
 :root {
   color-scheme: light;
+  --kura-bg: #f4f4f8;
+  --kura-surface: rgba(255, 255, 255, 0.82);
+  --kura-surface-strong: rgba(255, 255, 255, 0.94);
+  --kura-border: rgba(180, 160, 220, 0.22);
+  --kura-text: #251f38;
+  --kura-muted: #716c86;
+  --kura-glow-violet: rgba(161, 84, 255, 0.22);
+  --kura-glow-blue: rgba(69, 108, 255, 0.18);
+  --kura-glow-cyan: rgba(34, 211, 238, 0.18);
+  --kura-gradient-main: linear-gradient(135deg, #8d31ff 0%, #456cff 48%, #1dd9d2 100%);
+  --kura-gradient-deep: linear-gradient(135deg, #4b269d 0%, #5b2bc6 32%, #456cff 68%, #20d6d0 100%);
+  --kura-gradient-soft: linear-gradient(135deg, rgba(245, 239, 255, 0.92) 0%, rgba(230, 244, 255, 0.92) 50%, rgba(234, 255, 253, 0.92) 100%);
 }
 
 .dark {
   color-scheme: dark;
+  --kura-bg: #11121a;
+  --kura-surface: rgba(20, 22, 34, 0.78);
+  --kura-surface-strong: rgba(23, 26, 39, 0.9);
+  --kura-border: rgba(122, 101, 176, 0.28);
+  --kura-text: #f3f4ff;
+  --kura-muted: #b6b2cb;
+  --kura-glow-violet: rgba(137, 48, 255, 0.22);
+  --kura-glow-blue: rgba(69, 108, 255, 0.2);
+  --kura-glow-cyan: rgba(29, 217, 210, 0.18);
+  --kura-gradient-soft: linear-gradient(135deg, rgba(53, 34, 94, 0.52) 0%, rgba(34, 51, 104, 0.4) 55%, rgba(14, 90, 108, 0.34) 100%);
 }
 
 html,
@@ -23,16 +45,20 @@ body,
 body {
   @apply overflow-hidden font-sans text-slate-800 antialiased transition-colors duration-300;
   background:
-    radial-gradient(circle at 8% 5%, rgba(79, 70, 229, 0.16), transparent 30%),
-    radial-gradient(circle at 92% 92%, rgba(59, 130, 246, 0.1), transparent 26%),
-    #f9fafb;
+    radial-gradient(circle at 16% 18%, var(--kura-glow-violet), transparent 26%),
+    radial-gradient(circle at 48% 14%, var(--kura-glow-blue), transparent 24%),
+    radial-gradient(circle at 86% 34%, var(--kura-glow-cyan), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.05)),
+    var(--kura-bg);
 }
 
 .dark body {
   background:
-    radial-gradient(circle at 10% 8%, rgba(79, 70, 229, 0.18), transparent 35%),
-    radial-gradient(circle at 94% 90%, rgba(37, 99, 235, 0.14), transparent 30%),
-    #0f172a;
+    radial-gradient(circle at 14% 16%, var(--kura-glow-violet), transparent 28%),
+    radial-gradient(circle at 50% 12%, var(--kura-glow-blue), transparent 24%),
+    radial-gradient(circle at 86% 34%, var(--kura-glow-cyan), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.08)),
+    var(--kura-bg);
 }
 
 button {
@@ -73,16 +99,40 @@ select {
 
 @layer components {
   .kura-card {
-    @apply rounded-2xl border border-white/70 bg-white/95 shadow-soft backdrop-blur dark:border-slate-700/80 dark:bg-slate-900/90;
+    border-color: var(--kura-border);
+    background: var(--kura-surface-strong);
+    box-shadow: 0 22px 70px -34px rgba(54, 37, 101, 0.3);
+    @apply rounded-2xl backdrop-blur-xl;
   }
 
   .kura-input {
-    @apply w-full rounded-xl border border-slate-200/80 bg-white px-4 py-3 text-sm text-slate-700 placeholder:text-slate-400 outline-none ring-brand-500/40 focus:border-brand-400 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500;
+    border-color: rgba(148, 130, 197, 0.22);
+    background: rgba(255, 255, 255, 0.72);
+    @apply w-full rounded-xl px-4 py-3 text-sm text-slate-700 placeholder:text-slate-400 outline-none ring-brand-500/40 focus:border-brand-400 focus:ring-2 dark:text-slate-100 dark:placeholder:text-slate-500;
   }
 
   .kura-icon-btn {
-    @apply rounded-xl border border-slate-200/80 bg-white p-2.5 text-slate-600 hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800;
+    border-color: rgba(148, 130, 197, 0.22);
+    background: rgba(255, 255, 255, 0.72);
+    @apply rounded-xl p-2.5 text-slate-600 hover:-translate-y-0.5 hover:text-brand-700 dark:text-slate-200;
   }
+}
+
+.dark .kura-input,
+.dark .kura-icon-btn {
+  background: rgba(16, 18, 30, 0.78);
+  border-color: rgba(122, 101, 176, 0.3);
+}
+
+.kura-gradient-text {
+  background: var(--kura-gradient-main);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.kura-gradient-surface {
+  background: var(--kura-gradient-soft);
 }
 
 ::-webkit-scrollbar {

@@ -28,7 +28,6 @@ Kura is a full-stack real-time chat application built with React, Vite, Tailwind
 Project_Kura/
 ├── README.md
 ├── .env.example
-├── Project kura.txt
 ├── package.json
 ├── client/
 │   ├── .env.example
@@ -67,7 +66,6 @@ Project_Kura/
 
 - `package.json`: convenience scripts to run client and server together
 - `.env.example`: reminder to copy environment templates from `client/` and `server/`
-- `Project kura.txt`: rough project notes and scratchpad ideas, not runtime code
 
 ### Client
 
@@ -104,7 +102,6 @@ Project_Kura/
 - `components/chat/ConversationList.jsx`: inbox sidebar, search, requests, and group create entry
 - `components/chat/ChatArea.jsx`: message thread and composer
 - `components/chat/ProfilePanel.jsx`: direct chat actions and group management tools
-- `components/chat/FriendRequests.jsx`: simple request list component, currently not used by main chat page
 - `components/settings/SettingsPanel.jsx`: settings modal for profile, password, notifications, status, support, and danger zone
 
 ### Server

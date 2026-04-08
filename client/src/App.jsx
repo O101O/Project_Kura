@@ -6,15 +6,16 @@ import Dashboard from './pages/Dashboard';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import { APP_ROUTES } from './utils/constants';
 
 const App = () => {
   return (
     <Routes>
-      <Route path="/auth" element={<AuthPage />} />
+      <Route path={APP_ROUTES.auth} element={<AuthPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
       <Route
-        path="/dashboard"
+        path={APP_ROUTES.dashboard}
         element={
           <ProtectedRoute>
             <Dashboard />
@@ -22,7 +23,7 @@ const App = () => {
         }
       />
       <Route
-        path="/chat"
+        path={APP_ROUTES.chat}
         element={
           <ProtectedRoute>
             <ChatPage />
@@ -30,7 +31,7 @@ const App = () => {
         }
       />
       <Route
-        path="/contacts"
+        path={APP_ROUTES.contacts}
         element={
           <ProtectedRoute>
             <ContactsPage />
@@ -38,15 +39,15 @@ const App = () => {
         }
       />
       <Route
-        path="/settings"
+        path={APP_ROUTES.settings}
         element={
           <ProtectedRoute>
             <ChatPage />
           </ProtectedRoute>
         }
       />
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path={APP_ROUTES.root} element={<Navigate to={APP_ROUTES.dashboard} replace />} />
+      <Route path="*" element={<Navigate to={APP_ROUTES.dashboard} replace />} />
     </Routes>
   );
 };

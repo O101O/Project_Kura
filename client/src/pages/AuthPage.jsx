@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import AuthCard from '../components/auth/AuthCard';
 import AuthShell from '../components/auth/AuthShell';
 import { useAuth } from '../context/AuthContext';
+import { APP_ROUTES } from '../utils/constants';
 
 const AuthPage = () => {
   const { user, login, register } = useAuth();
@@ -11,7 +12,7 @@ const AuthPage = () => {
   const [loading, setLoading] = useState(false);
 
   if (user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={APP_ROUTES.root} replace />;
   }
 
   const handleSubmit = async (form) => {
@@ -49,13 +50,13 @@ const AuthPage = () => {
 
   return (
     <AuthShell>
-        <AuthCard
-          mode={mode}
-          onSubmit={handleSubmit}
-          onToggle={() => setMode((prev) => (prev === 'login' ? 'register' : 'login'))}
-          loading={loading}
-          error={error}
-        />
+      <AuthCard
+        mode={mode}
+        onSubmit={handleSubmit}
+        onToggle={() => setMode((prev) => (prev === 'login' ? 'register' : 'login'))}
+        loading={loading}
+        error={error}
+      />
     </AuthShell>
   );
 };

@@ -4,6 +4,7 @@ import SidebarRail from '../components/layout/SidebarRail';
 import TopBar from '../components/layout/TopBar';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
+import { APP_ROUTES } from '../utils/constants';
 
 const dummyStarred = [
   { _id: 'demo-1', username: 'Maya Chen', bio: 'Design lead', status: 'online' },
@@ -103,9 +104,9 @@ const Dashboard = () => {
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-3.5 lg:grid-cols-[320px_1fr]">
           <aside className="kura-card min-h-0 overflow-hidden p-4 lg:p-5">
             <div className="flex h-full min-h-0 gap-4">
-              <SidebarRail settingsState={{ from: '/dashboard' }} />
+              <SidebarRail settingsState={{ from: APP_ROUTES.dashboard }} />
               <div className="flex min-w-0 flex-1 flex-col">
-                <div className="rounded-3xl bg-gradient-to-br from-slate-900 via-brand-700 to-blue-500 p-5 text-white shadow-soft">
+                <div className="rounded-3xl bg-[linear-gradient(135deg,#311f61_0%,#5b2bc6_34%,#456cff_68%,#1dd9d2_100%)] p-5 text-white shadow-soft">
                   <p className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/90">
                     <Sparkles size={13} /> Home
                   </p>
@@ -127,12 +128,12 @@ const Dashboard = () => {
 
           <section className="min-h-0 overflow-y-auto pr-1">
             <div className="space-y-6 pb-6">
-              <div className="rounded-[28px] bg-gradient-to-r from-blue-500 via-brand-600 to-indigo-600 p-6 text-white shadow-soft">
-                <p className="text-sm font-medium text-blue-100">Workspace Home</p>
+              <div className="rounded-[28px] bg-[linear-gradient(135deg,#8d31ff_0%,#456cff_58%,#1dd9d2_100%)] p-6 text-white shadow-soft">
+                <p className="text-sm font-medium text-white/80">Workspace Home</p>
                 <h1 className="mt-2 text-3xl font-bold tracking-tight">
                   {getGreeting()}, {user?.username || 'there'}
                 </h1>
-                <p className="mt-2 text-sm text-blue-100">{formatDashboardDate()}</p>
+                <p className="mt-2 text-sm text-white/80">{formatDashboardDate()}</p>
               </div>
 
               <div className="grid gap-4 xl:grid-cols-3">
@@ -208,7 +209,7 @@ const Dashboard = () => {
                       <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Upcoming</h2>
                       <p className="text-xs text-slate-500 dark:text-slate-400">Static schedule for the dashboard demo</p>
                     </div>
-                    <span className="rounded-xl bg-blue-50 p-2 text-blue-500 dark:bg-blue-900/20 dark:text-blue-300">
+                    <span className="rounded-xl bg-[linear-gradient(135deg,rgba(245,239,255,0.9),rgba(232,249,255,0.9))] p-2 text-brand-600 dark:bg-blue-900/20 dark:text-blue-300">
                       <CalendarDays size={16} />
                     </span>
                   </div>
@@ -216,7 +217,7 @@ const Dashboard = () => {
                   <div className="space-y-3">
                     {dummyUpcoming.map((event) => (
                       <article key={event.id} className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white to-slate-50 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:border-slate-700 dark:from-slate-900 dark:to-slate-800">
-                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-blue-500 dark:text-blue-300">{event.time}</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-brand-500 dark:text-blue-300">{event.time}</p>
                         <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">{event.title}</p>
                         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{event.room}</p>
                       </article>

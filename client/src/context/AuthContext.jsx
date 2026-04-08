@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import api from '../utils/api';
+import { STORAGE_KEYS } from '../utils/constants';
 
 const AuthContext = createContext(null);
 
@@ -9,7 +10,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const init = async () => {
-      const token = localStorage.getItem('kura_token');
+      const token = localStorage.getItem(STORAGE_KEYS.token);
       if (!token) {
         setLoading(false);
         return;
@@ -19,7 +20,7 @@ export const AuthProvider = ({ children }) => {
         const { data } = await api.get('/auth/me');
         setUser(data.user);
       } catch (_error) {
-        localStorage.removeItem('kura_token');
+        localStorage.removeItem(STORAGE_KEYS.token);
         setUser(null);
       } finally {
         setLoading(false);
@@ -31,7 +32,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const { data } = await api.post('/auth/login', { email, password });
-    localStorage.setItem('kura_token', data.token);
+    localStorage.setItem(STORAGE_KEYS.token, data.token);
     setUser(data.user);
   };
 
@@ -39,12 +40,12 @@ export const AuthProvider = ({ children }) => {
     const { data } = await api.post('/auth/register', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
-    localStorage.setItem('kura_token', data.token);
+    localStorage.setItem(STORAGE_KEYS.token, data.token);
     setUser(data.user);
   };
 
   const logout = () => {
-    localStorage.removeItem('kura_token');
+    localStorage.removeItem(STORAGE_KEYS.token);
     setUser(null);
   };
 

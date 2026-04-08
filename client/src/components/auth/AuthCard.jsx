@@ -1,4 +1,4 @@
-import { Camera, ShieldCheck, Sparkles } from 'lucide-react';
+import { Camera, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -25,25 +25,24 @@ const AuthCard = ({ mode, onSubmit, onToggle, loading, error }) => {
   };
 
   return (
-    <div className="kura-card w-full max-w-md p-8 animate-fadeIn lg:p-10">
-      <div className="mb-6 flex items-start justify-between">
+    <div className="w-full max-w-md animate-fadeIn">
+      <div className="mb-7">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-            {mode === 'login' ? 'Welcome back' : 'Create account'}
+          <h2 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+            {mode === 'login' ? 'Log in to Kura' : 'Create your account'}
           </h2>
-          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            {mode === 'login' ? 'Sign in to continue your conversations.' : 'Start chatting with your circle on Kura.'}
+          <p className="mt-3 max-w-sm text-sm leading-6 text-slate-500">
+            {mode === 'login'
+              ? 'Continue your conversations with a cleaner, safer messaging experience.'
+              : 'Start chatting with your circle on Kura with secure sign up and recovery options.'}
           </p>
-        </div>
-        <div className="rounded-xl bg-brand-50 p-2.5 text-brand-600 dark:bg-brand-900/30 dark:text-brand-200">
-          <Sparkles size={18} />
         </div>
       </div>
 
-      <form className="space-y-4" onSubmit={handleSubmit}>
+      <form className="space-y-3.5" onSubmit={handleSubmit}>
         {mode === 'register' && (
           <input
-            className="kura-input"
+            className="kura-input bg-white/95"
             placeholder="Username"
             name="username"
             value={form.username}
@@ -54,8 +53,8 @@ const AuthCard = ({ mode, onSubmit, onToggle, loading, error }) => {
 
         <input
           type="email"
-          className="kura-input"
-          placeholder="Email"
+          className="kura-input bg-white/95"
+          placeholder="Email or phone number"
           name="email"
           value={form.email}
           onChange={handleChange}
@@ -64,7 +63,7 @@ const AuthCard = ({ mode, onSubmit, onToggle, loading, error }) => {
 
         <input
           type="password"
-          className="kura-input"
+          className="kura-input bg-white/95"
           placeholder="Password"
           name="password"
           value={form.password}
@@ -77,7 +76,7 @@ const AuthCard = ({ mode, onSubmit, onToggle, loading, error }) => {
           <>
             <input
               type="password"
-              className="kura-input"
+              className="kura-input bg-white/95"
               placeholder="Confirm Password"
               name="confirmPassword"
               value={form.confirmPassword}
@@ -86,12 +85,12 @@ const AuthCard = ({ mode, onSubmit, onToggle, loading, error }) => {
               minLength={6}
             />
 
-            <label className="flex cursor-pointer items-center justify-between rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-600 hover:border-brand-300 hover:bg-brand-50/40 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300 dark:hover:border-brand-700 dark:hover:bg-brand-900/20">
+            <label className="flex cursor-pointer items-center justify-between rounded-2xl border border-dashed border-slate-300 bg-white/70 px-4 py-3 text-sm text-slate-600 hover:border-brand-300 hover:bg-brand-50/40">
               <span className="inline-flex items-center gap-2">
                 <Camera size={15} />
                 {form.profilePic ? form.profilePic.name : 'Upload profile picture'}
               </span>
-              <span className="rounded-lg bg-white px-2 py-1 text-xs font-medium dark:bg-slate-900">Choose</span>
+              <span className="rounded-lg bg-white px-2 py-1 text-xs font-medium shadow-sm">Choose</span>
               <input
                 type="file"
                 name="profilePic"
@@ -103,25 +102,32 @@ const AuthCard = ({ mode, onSubmit, onToggle, loading, error }) => {
           </>
         )}
 
-        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/30 dark:text-red-300">{error}</p>}
+        {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-xl bg-gradient-to-r from-brand-600 to-blue-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200/70 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-300/60 disabled:cursor-not-allowed disabled:opacity-70 dark:shadow-indigo-900/30"
-        >
-          {loading ? 'Please wait...' : mode === 'login' ? 'Login' : 'Create Account'}
-        </button>
+        <div className="flex flex-col gap-4 pt-2 sm:flex-row sm:items-center">
+          <button
+            type="submit"
+            disabled={loading}
+            className="inline-flex min-w-[120px] items-center justify-center rounded-full bg-[#1d66f2] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-200/80 hover:-translate-y-0.5 hover:bg-[#1358db] disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {loading ? 'Please wait...' : mode === 'login' ? 'Log in' : 'Create Account'}
+          </button>
+
+          {mode === 'login' && (
+            <Link to="/forgot-password" className="inline-flex items-center gap-1.5 text-sm font-medium text-[#1d66f2] hover:text-[#1358db]">
+              <ShieldCheck size={14} />
+              Forgotten your password?
+            </Link>
+          )}
+        </div>
       </form>
 
-      <div className="mt-4 flex items-center justify-between text-sm">
-        {mode === 'login' ? (
-          <Link to="/forgot-password" className="inline-flex items-center gap-1.5 text-brand-600 hover:text-brand-500">
-            <ShieldCheck size={14} />
-            Forgot password?
-          </Link>
-        ) : <span />}
-        <button type="button" className="text-slate-500 hover:text-slate-800 dark:text-slate-300 dark:hover:text-slate-100" onClick={onToggle}>
+      <div className="mt-6 flex items-center justify-between text-sm">
+        <label className="inline-flex items-center gap-2 text-slate-500">
+          <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-[#1d66f2] focus:ring-[#1d66f2]" />
+          Keep me signed in
+        </label>
+        <button type="button" className="text-slate-500 hover:text-slate-800" onClick={onToggle}>
           {mode === 'login' ? 'Create an account' : 'Back to login'}
         </button>
       </div>

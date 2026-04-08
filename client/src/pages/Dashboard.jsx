@@ -106,18 +106,18 @@ const Dashboard = () => {
             <div className="flex h-full min-h-0 gap-4">
               <SidebarRail settingsState={{ from: APP_ROUTES.dashboard }} />
               <div className="flex min-w-0 flex-1 flex-col">
-                <div className="rounded-3xl bg-[linear-gradient(135deg,#311f61_0%,#5b2bc6_34%,#456cff_68%,#1dd9d2_100%)] p-5 text-white shadow-soft">
-                  <p className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/90">
+                <div className="rounded-3xl border border-brand-100/70 bg-[linear-gradient(135deg,rgba(245,239,255,0.98)_0%,rgba(234,242,255,0.98)_52%,rgba(236,255,252,0.98)_100%)] p-5 text-slate-900 shadow-[0_18px_50px_-30px_rgba(54,37,101,0.22)]">
+                  <p className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-700 shadow-sm">
                     <Sparkles size={13} /> Home
                   </p>
-                  <h2 className="mt-4 text-2xl font-bold tracking-tight">Your workspace at a glance</h2>
-                  <p className="mt-2 text-sm text-white/80">Stay on top of conversations, favorites, and what is next.</p>
+                  <h2 className="mt-4 text-2xl font-bold tracking-tight text-slate-900">Quick workspace summary</h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">A quieter snapshot of your activity, starred chats, and today’s agenda.</p>
                 </div>
 
                 <div className="mt-4 grid gap-3">
                   {heroStats.map((item) => (
-                    <div key={item.id} className="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/60">
-                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">{item.label}</p>
+                    <div key={item.id} className="rounded-2xl border border-slate-200/80 bg-slate-50/85 px-4 py-3.5 dark:border-slate-700 dark:bg-slate-800/60">
+                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-600 dark:text-slate-300">{item.label}</p>
                       <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{item.value}</p>
                     </div>
                   ))}
@@ -128,12 +128,15 @@ const Dashboard = () => {
 
           <section className="min-h-0 overflow-y-auto pr-1">
             <div className="space-y-6 pb-6">
-              <div className="rounded-[28px] bg-[linear-gradient(135deg,#8d31ff_0%,#456cff_58%,#1dd9d2_100%)] p-6 text-white shadow-soft">
-                <p className="text-sm font-medium text-white/80">Workspace Home</p>
-                <h1 className="mt-2 text-3xl font-bold tracking-tight">
-                  {getGreeting()}, {user?.username || 'there'}
-                </h1>
-                <p className="mt-2 text-sm text-white/80">{formatDashboardDate()}</p>
+              <div className="relative overflow-hidden rounded-[28px] bg-[linear-gradient(135deg,#7b2ef6_0%,#4b59f0_48%,#18bfb7_100%)] p-6 text-white shadow-soft">
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(12,10,24,0.12),rgba(12,10,24,0.04))]" />
+                <div className="relative">
+                  <p className="text-sm font-medium text-white/88 [text-shadow:0_1px_8px_rgba(0,0,0,0.18)]">Workspace Home</p>
+                  <h1 className="mt-2 text-3xl font-bold tracking-tight [text-shadow:0_2px_16px_rgba(0,0,0,0.22)]">
+                    {getGreeting()}, {user?.username || 'there'}
+                  </h1>
+                  <p className="mt-2 text-sm text-white/88 [text-shadow:0_1px_8px_rgba(0,0,0,0.18)]">{formatDashboardDate()}</p>
+                </div>
               </div>
 
               <div className="grid gap-4 xl:grid-cols-3">
@@ -141,7 +144,7 @@ const Dashboard = () => {
                   <div className="mb-4 flex items-center justify-between">
                     <div>
                       <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Recent Activity</h2>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Latest five chats and message moments</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-300">Latest five chats and message moments</p>
                     </div>
                     <span className="rounded-xl bg-brand-50 p-2 text-brand-600 dark:bg-brand-900/30 dark:text-brand-200">
                       <Activity size={16} />
@@ -150,23 +153,23 @@ const Dashboard = () => {
 
                   <div className="space-y-3">
                     {!loading && recentActivity.length === 0 && (
-                      <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                      <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">
                         No recent chats yet. Your latest messages will show up here.
                       </div>
                     )}
 
                     {recentActivity.map((item) => (
-                      <article key={item._id} className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:border-slate-700 dark:bg-slate-800/60">
-                        <div className="flex items-start justify-between gap-3">
+                      <article key={item._id} className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:border-slate-700 dark:bg-slate-800/60">
+                        <div className="flex items-start justify-between gap-4">
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{item.title}</p>
-                            <p className="mt-1 line-clamp-2 text-sm text-slate-500 dark:text-slate-400">{item.preview}</p>
+                            <p className="truncate text-[15px] font-semibold text-slate-950 dark:text-slate-50">{item.title}</p>
+                            <p className="mt-1.5 line-clamp-2 text-sm font-normal leading-6 text-slate-700 dark:text-slate-300">{item.preview}</p>
                           </div>
-                          <span className="rounded-xl bg-white p-2 text-slate-500 shadow-sm dark:bg-slate-900 dark:text-slate-300">
+                          <span className="rounded-xl bg-white p-2.5 text-slate-600 shadow-sm dark:bg-slate-900 dark:text-slate-300">
                             <MessageCircleMore size={15} />
                           </span>
                         </div>
-                        <p className="mt-3 text-xs font-medium uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">{item.timeLabel}</p>
+                        <p className="mt-4 text-xs font-semibold uppercase tracking-[0.1em] text-slate-600 dark:text-slate-300">{item.timeLabel}</p>
                       </article>
                     ))}
                   </div>
@@ -176,7 +179,7 @@ const Dashboard = () => {
                   <div className="mb-4 flex items-center justify-between">
                     <div>
                       <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Starred Conversations</h2>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Priority people you keep close</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-300">Priority people you keep close</p>
                     </div>
                     <span className="rounded-xl bg-amber-50 p-2 text-amber-500 dark:bg-amber-900/20 dark:text-amber-300">
                       <Star size={16} />
@@ -185,18 +188,18 @@ const Dashboard = () => {
 
                   <div className="space-y-3">
                     {starredConversations.map((person) => (
-                      <article key={person._id} className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:border-slate-700 dark:bg-slate-800/60">
+                      <article key={person._id} className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:border-slate-700 dark:bg-slate-800/60">
                         <img
                           src={person.profilePic || `https://api.dicebear.com/8.x/initials/svg?seed=${person.username}`}
                           alt={person.username}
-                          className="h-11 w-11 rounded-2xl object-cover"
+                          className="h-12 w-12 rounded-2xl object-cover"
                         />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{person.username}</p>
+                            <p className="truncate text-sm font-semibold text-slate-950 dark:text-slate-50">{person.username}</p>
                             <span className={`h-2 w-2 rounded-full ${statusTone[person.status] || statusTone.offline}`} />
                           </div>
-                          <p className="truncate text-xs text-slate-500 dark:text-slate-400">{person.bio || 'Favorite collaborator'}</p>
+                          <p className="mt-1 truncate text-sm text-slate-700 dark:text-slate-300">{person.bio || 'Favorite collaborator'}</p>
                         </div>
                       </article>
                     ))}
@@ -207,7 +210,7 @@ const Dashboard = () => {
                   <div className="mb-4 flex items-center justify-between">
                     <div>
                       <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Upcoming</h2>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Static schedule for the dashboard demo</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-300">Static schedule for the dashboard demo</p>
                     </div>
                     <span className="rounded-xl bg-[linear-gradient(135deg,rgba(245,239,255,0.9),rgba(232,249,255,0.9))] p-2 text-brand-600 dark:bg-blue-900/20 dark:text-blue-300">
                       <CalendarDays size={16} />
@@ -216,10 +219,10 @@ const Dashboard = () => {
 
                   <div className="space-y-3">
                     {dummyUpcoming.map((event) => (
-                      <article key={event.id} className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white to-slate-50 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:border-slate-700 dark:from-slate-900 dark:to-slate-800">
+                      <article key={event.id} className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white to-slate-50 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:border-slate-700 dark:from-slate-900 dark:to-slate-800">
                         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-brand-500 dark:text-blue-300">{event.time}</p>
-                        <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">{event.title}</p>
-                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{event.room}</p>
+                        <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-slate-50">{event.title}</p>
+                        <p className="mt-1.5 text-sm text-slate-700 dark:text-slate-300">{event.room}</p>
                       </article>
                     ))}
                   </div>

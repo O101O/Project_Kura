@@ -48,7 +48,7 @@ const TopBar = () => {
     <header className="kura-card relative z-[80] overflow-visible flex items-center justify-between px-5 py-4 md:px-6">
       <div>
         <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Workspace</p>
-        <h1 className="mt-1 text-lg font-semibold tracking-tight text-slate-900 dark:text-white">Kura Messenger</h1>
+        <h1 className="mt-1 text-lg font-semibold tracking-tight text-slate-900 dark:text-white">Kura</h1>
       </div>
       <div className="flex items-center gap-2.5">
         <span className="hidden items-center gap-1.5 rounded-xl bg-[linear-gradient(135deg,rgba(245,239,255,0.95),rgba(232,249,255,0.95))] px-2.5 py-1 text-xs font-medium text-brand-700 dark:bg-brand-900/30 dark:text-brand-200 md:inline-flex">

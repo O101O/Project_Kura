@@ -49,7 +49,7 @@ const AuthPage = () => {
   };
 
   return (
-    <AuthShell>
+    <AuthShell mode={mode}>
       <AuthCard
         mode={mode}
         onSubmit={handleSubmit}

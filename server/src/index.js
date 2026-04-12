@@ -5,6 +5,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import { Server } from 'socket.io';
 import { connectDB } from './config/db.js';
+import Conversation from './models/Conversation.js';
 import { getClientUrl, getPort, getUploadsDir } from './config/env.js';
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
@@ -14,6 +15,8 @@ import friendRoutes from './routes/friendRoutes.js';
 import groupRoutes from './routes/groupRoutes.js';
 import userSettingsRoutes from './routes/userSettingsRoutes.js';
 import supportRoutes from './routes/supportRoutes.js';
+import conversationRoutes from './routes/conversationRoutes.js';
+import eventRoutes from './routes/eventRoutes.js';
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
 import { configureSocket } from './socket/socketHandler.js';
 import { setIO } from './socket/socketState.js';
@@ -62,10 +65,12 @@ app.use('/api/users', userRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/user', userSettingsRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/conversations', conversationRoutes);
 app.use('/api/friend-request', friendRequestRoutes);
 app.use('/api/friends', friendRoutes);
 app.use('/api/group', groupRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/events', eventRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
@@ -76,6 +81,10 @@ connectDB()
   .then(() => {
     server.listen(port, () => {
       console.log(`Server running on port ${port}`);
+    });
+
+    Conversation.syncIndexes().catch((error) => {
+      console.error('Failed to sync conversation indexes:', error.message);
     });
   })
   .catch((error) => {

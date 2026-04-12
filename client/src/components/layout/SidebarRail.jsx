@@ -1,9 +1,8 @@
-import { Home, MessageSquare, Phone, Settings, Star, Users } from 'lucide-react';
+import { Home, MessageSquare, Settings, Star, Users } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { APP_ROUTES } from '../../utils/constants';
 
 const utilityIcons = [
-  { id: 'calls', icon: Phone, label: 'Calls' },
   { id: 'starred', icon: Star, label: 'Starred' }
 ];
 

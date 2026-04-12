@@ -1,4 +1,4 @@
-import { ChevronDown, Plus, Search, UserPlus, Users } from 'lucide-react';
+import { ChevronDown, Plus, Search, Star, UserPlus, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import SidebarRail from '../layout/SidebarRail';
 
@@ -74,7 +74,8 @@ const ConversationList = ({
   onRespondRequest,
   requestActionLoading,
   settingsState,
-  onOpenCreateGroup
+  onOpenCreateGroup,
+  onToggleStar
 }) => {
   const pendingCount = pendingRequests.length;
   const [activeSection, setActiveSection] = useState('Recent');
@@ -273,31 +274,45 @@ const ConversationList = ({
                   : getStatusLabel(friendStatus, isOnline);
 
                 return (
-                  <button
+                  <div
                     key={`${item.type}-${item._id}`}
-                    onClick={() => setSelectedChat(item)}
                     className={`group flex w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition-all duration-200 hover:-translate-y-0.5 ${
                       selected
                         ? 'border-brand-200 bg-brand-50/80 shadow-sm dark:border-brand-700 dark:bg-brand-900/20'
                         : 'border-transparent hover:border-slate-200 hover:bg-slate-50 dark:hover:border-slate-700 dark:hover:bg-slate-800/70'
                     }`}
                   >
-                    <div className="relative shrink-0">
-                      <img
-                        src={(isGroup ? item.groupPic : item.profilePic) || `https://api.dicebear.com/8.x/initials/svg?seed=${isGroup ? item.name : item.username}`}
-                        alt={isGroup ? item.name : item.username}
-                        className="h-11 w-11 rounded-full object-cover ring-2 ring-white dark:ring-slate-800"
-                      />
-                      {!isGroup && isOnline && friendStatus !== 'invisible' && (
-                        <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500 dark:border-slate-900" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{isGroup ? item.name : item.username}</p>
-                      <p className="truncate text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>
-                    </div>
-                    <span className="h-2.5 w-2.5 rounded-full bg-brand-400 opacity-0 transition-opacity group-hover:opacity-100" />
-                  </button>
+                    <button type="button" onClick={() => setSelectedChat(item)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                      <div className="relative shrink-0">
+                        <img
+                          src={(isGroup ? item.groupPic : item.profilePic) || `https://api.dicebear.com/8.x/initials/svg?seed=${isGroup ? item.name : item.username}`}
+                          alt={isGroup ? item.name : item.username}
+                          className="h-11 w-11 rounded-full object-cover ring-2 ring-white dark:ring-slate-800"
+                        />
+                        {!isGroup && isOnline && friendStatus !== 'invisible' && (
+                          <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500 dark:border-slate-900" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{isGroup ? item.name : item.username}</p>
+                        <p className="truncate text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onToggleStar?.(item);
+                      }}
+                      className={`rounded-xl border px-2 py-2 text-slate-500 transition-colors hover:border-brand-200 hover:text-brand-600 ${
+                        item.isStarred ? 'border-brand-200 bg-brand-50 text-brand-600' : 'border-transparent'
+                      } ${item.conversationId ? '' : 'cursor-not-allowed opacity-50'}`}
+                      aria-label={item.isStarred ? 'Unstar conversation' : 'Star conversation'}
+                      disabled={!item.conversationId}
+                    >
+                      <Star size={16} className={item.isStarred ? 'fill-current' : ''} />
+                    </button>
+                  </div>
                 );
               })
             )}

@@ -122,42 +122,73 @@ const ChatPage = () => {
 
   const fetchSidebarData = useCallback(async () => {
     try {
-      const [friendsRes, pendingRes, groupsRes] = await Promise.all([
+      const [friendsRes, pendingRes, groupsRes, conversationsRes] = await Promise.all([
         api.get('/friends'),
         api.get('/friend-request/pending'),
-        api.get('/group')
+        api.get('/group'),
+        api.get('/conversations')
       ]);
 
       const nextFriends = friendsRes.data.friends || [];
       const nextPending = pendingRes.data.pending || [];
       const nextGroups = groupsRes.data.groups || [];
+      const conversations = conversationsRes.data.conversations || [];
 
-      setFriends(nextFriends);
-      setGroups(nextGroups);
+      const directMap = new Map(
+        conversations
+          .filter((conversation) => conversation.type === 'direct')
+          .map((conversation) => [String(conversation.peerUserId), conversation])
+      );
+      const groupMap = new Map(
+        conversations
+          .filter((conversation) => conversation.type === 'group')
+          .map((conversation) => [String(conversation.groupId), conversation])
+      );
+
+      const nextFriendsWithConversations = nextFriends.map((friend) => {
+        const conversation = directMap.get(String(friend._id));
+        return {
+          ...friend,
+          conversationId: conversation?._id || null,
+          isStarred: Boolean(conversation?.isStarred)
+        };
+      });
+
+      const nextGroupsWithConversations = nextGroups.map((group) => {
+        const conversation = groupMap.get(String(group._id));
+        return {
+          ...group,
+          conversationId: conversation?._id || null,
+          isStarred: Boolean(conversation?.isStarred)
+        };
+      });
+
+      setFriends(nextFriendsWithConversations);
+      setGroups(nextGroupsWithConversations);
       setPendingRequests(nextPending);
       setRequestActionLoading({});
       setFriendStatuses(
-        nextFriends.reduce((acc, friend) => {
+        nextFriendsWithConversations.reduce((acc, friend) => {
           acc[friend._id] = friend.status || 'online';
           return acc;
         }, {})
       );
 
       setSelectedChat((prev) => {
-        if (prev?.type === 'direct' && nextFriends.some((friend) => friend._id === prev._id)) {
-          return nextFriends.find((friend) => friend._id === prev._id) || prev;
+        if (prev?.type === 'direct' && nextFriendsWithConversations.some((friend) => friend._id === prev._id)) {
+          return nextFriendsWithConversations.find((friend) => friend._id === prev._id) || prev;
         }
-        if (prev?.type === 'group' && nextGroups.some((group) => group._id === prev._id)) {
-          return nextGroups.find((group) => group._id === prev._id) || prev;
+        if (prev?.type === 'group' && nextGroupsWithConversations.some((group) => group._id === prev._id)) {
+          return nextGroupsWithConversations.find((group) => group._id === prev._id) || prev;
         }
-        const firstFriend = nextFriends.find((friend) => !deletedChatIds.includes(friend._id));
+        const firstFriend = nextFriendsWithConversations.find((friend) => !deletedChatIds.includes(friend._id));
         if (firstFriend) {
           return firstFriend;
         }
-        if (nextGroups[0]) {
-          return nextGroups[0];
+        if (nextGroupsWithConversations[0]) {
+          return nextGroupsWithConversations[0];
         }
-        if (prev && nextFriends.some((friend) => friend._id === prev._id)) {
+        if (prev && nextFriendsWithConversations.some((friend) => friend._id === prev._id)) {
           return prev;
         }
         return null;
@@ -563,6 +594,76 @@ const ChatPage = () => {
     }
   }, [fetchMessages, selectedChat, showFeedback]);
 
+  const handleToggleStar = useCallback(async (item) => {
+    try {
+      let conversationId = item?.conversationId;
+
+      if (!conversationId) {
+        const { data: conversationsData } = await api.get('/conversations');
+        const conversations = conversationsData?.conversations || [];
+
+        const directMap = new Map(
+          conversations
+            .filter((conversation) => conversation.type === 'direct')
+            .map((conversation) => [String(conversation.peerUserId), conversation])
+        );
+        const groupMap = new Map(
+          conversations
+            .filter((conversation) => conversation.type === 'group')
+            .map((conversation) => [String(conversation.groupId), conversation])
+        );
+
+        setFriends((prev) => prev.map((friend) => {
+          const conversation = directMap.get(String(friend._id));
+          return {
+            ...friend,
+            conversationId: conversation?._id || null,
+            isStarred: Boolean(conversation?.isStarred)
+          };
+        }));
+
+        setGroups((prev) => prev.map((group) => {
+          const conversation = groupMap.get(String(group._id));
+          return {
+            ...group,
+            conversationId: conversation?._id || null,
+            isStarred: Boolean(conversation?.isStarred)
+          };
+        }));
+
+        conversationId = item?.type === 'group'
+          ? groupMap.get(String(item._id))?._id
+          : directMap.get(String(item._id))?._id;
+      }
+
+      if (!conversationId) {
+        showFeedback('Conversation not ready yet. Please try again.', 2000);
+        return;
+      }
+
+      const { data } = await api.patch(`/conversations/${conversationId}/star`);
+      const updated = data.conversation;
+
+      if (updated?.type === 'direct') {
+        setFriends((prev) => prev.map((friend) => (
+          friend.conversationId === updated._id ? { ...friend, isStarred: updated.isStarred } : friend
+        )));
+      }
+
+      if (updated?.type === 'group') {
+        setGroups((prev) => prev.map((group) => (
+          group.conversationId === updated._id ? { ...group, isStarred: updated.isStarred } : group
+        )));
+      }
+
+      setSelectedChat((prev) => (
+        prev?.conversationId === updated._id ? { ...prev, isStarred: updated.isStarred } : prev
+      ));
+    } catch (error) {
+      showFeedback(error.response?.data?.message || 'Failed to update starred chat', 2000);
+    }
+  }, [showFeedback]);
+
   const respondToRequest = async (requesterId, action) => {
     try {
       setRequestActionLoading((prev) => ({ ...prev, [requesterId]: true }));
@@ -849,6 +950,7 @@ const ChatPage = () => {
               requestActionLoading={requestActionLoading}
               settingsState={settingsState}
               onOpenCreateGroup={() => setIsCreateGroupOpen(true)}
+              onToggleStar={handleToggleStar}
             />
           </div>
           <div className={`${mobileView === 'list' ? 'hidden lg:block' : 'block'} min-h-0 h-full`}>

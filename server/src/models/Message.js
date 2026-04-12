@@ -88,6 +88,10 @@ const messageSchema = new mongoose.Schema(
     seen: {
       type: Boolean,
       default: false
+    },
+    isStarred: {
+      type: Boolean,
+      default: false
     }
   },
   {

@@ -6,6 +6,7 @@ import { getUploadedFile } from '../middleware/uploadMiddleware.js';
 import { buildUploadUrl } from '../utils/uploadFile.js';
 import { uploadImageBuffer } from '../utils/uploadImage.js';
 import { emitToUser, emitPresenceUpdates, emitToGroup } from '../socket/socketState.js';
+import { upsertGroupConversations } from '../utils/conversationUtils.js';
 
 const asString = (value) => String(value);
 const toIdString = (value) => asString(value?._id || value);
@@ -310,6 +311,11 @@ export const sendGroupMessage = async (req, res, next) => {
     const populatedMessage = await Message.findById(message._id).populate('sender', 'username profilePic');
     await Group.updateOne({ _id: groupId }, { $set: { updatedAt: new Date() } });
     emitToGroup(groupId, 'newGroupMessage', populatedMessage);
+    await upsertGroupConversations({
+      groupId,
+      memberIds: (group.members || []).map((member) => member._id),
+      message: populatedMessage
+    });
 
     return res.status(201).json({ message: populatedMessage });
   } catch (error) {

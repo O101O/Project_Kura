@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import { getUploadedFile } from '../middleware/uploadMiddleware.js';
 import { buildUploadUrl } from '../utils/uploadFile.js';
 import { emitToGroup, emitToUser } from '../socket/socketState.js';
+import { upsertDirectConversation } from '../utils/conversationUtils.js';
 
 const hasUserId = (list, userId) => (list || []).some((id) => String(id) === String(userId));
 const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
@@ -234,6 +235,10 @@ export const sendMessage = async (req, res, next) => {
 
     const message = await populateMessageById(createdMessage._id);
     emitMessageEvent(message, 'message:new', message);
+    await Promise.all([
+      upsertDirectConversation({ ownerId: senderId, peerUserId: receiverId, message }),
+      upsertDirectConversation({ ownerId: receiverId, peerUserId: senderId, message })
+    ]);
 
     res.status(201).json({ message });
   } catch (error) {

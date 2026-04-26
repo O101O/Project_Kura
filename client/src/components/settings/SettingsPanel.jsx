@@ -15,6 +15,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import api from '../../utils/api';
+import ToggleSwitch from '../common/ToggleSwitch';
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User },
@@ -44,31 +45,7 @@ const SectionCard = ({ title, subtitle, children, tone = 'default' }) => (
   </section>
 );
 
-const Toggle = ({ checked, onChange, label, hint }) => (
-  <label className="flex cursor-pointer items-center justify-between rounded-xl border border-slate-200/70 bg-slate-50/70 px-3 py-2.5 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800/70 dark:hover:bg-slate-800">
-    <span className="min-w-0 pr-3">
-      <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{label}</p>
-      {hint && <p className="text-xs text-slate-500 dark:text-slate-400">{hint}</p>}
-    </span>
-    <button
-      type="button"
-      onClick={(e) => {
-        e.preventDefault();
-        onChange(!checked);
-      }}
-      className={`relative h-6 w-11 shrink-0 overflow-hidden rounded-full transition-colors duration-200 ${
-        checked ? 'bg-brand-600' : 'bg-slate-300 dark:bg-slate-600'
-      }`}
-      aria-pressed={checked}
-    >
-      <span
-        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
-          checked ? 'translate-x-5' : 'translate-x-0.5'
-        }`}
-      />
-    </button>
-  </label>
-);
+// ToggleSwitch component imported from ../common/ToggleSwitch
 
 const SettingsPanel = ({ open, onClose, user, setUser, socket, onLogout }) => {
   const location = useLocation();
@@ -400,19 +377,19 @@ const SettingsPanel = ({ open, onClose, user, setUser, socket, onLogout }) => {
 
             {activeTab === 'notifications' && (
               <SectionCard title="Notifications" subtitle="Fine-tune how Kura notifies you.">
-                <Toggle
+                <ToggleSwitch
                   checked={notifications.messages}
                   onChange={(value) => setNotifications((prev) => ({ ...prev, messages: value }))}
                   label="Message notifications"
                   hint="Receive notifications for new messages"
                 />
-                <Toggle
+                <ToggleSwitch
                   checked={notifications.sounds}
                   onChange={(value) => setNotifications((prev) => ({ ...prev, sounds: value }))}
                   label="Sound"
                   hint="Play sound on new activity"
                 />
-                <Toggle
+                <ToggleSwitch
                   checked={notifications.friendRequests}
                   onChange={(value) => setNotifications((prev) => ({ ...prev, friendRequests: value }))}
                   label="Friend request alerts"

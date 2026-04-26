@@ -149,7 +149,7 @@ Project_Kura/
 - `utils/generateToken.js`: JWT signing helper
 - `utils/sendEmail.js`: console/SMTP/Ethereal email transport helper for password-reset mail
 - `utils/uploadImage.js`: Cloudinary upload helper
-- `seed/seed.js`: sample users and starter messages
+
 
 ## Environment Variables
 

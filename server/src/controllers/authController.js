@@ -1,3 +1,7 @@
+/**
+ * Authentication controller - Handles user registration, login, password reset, and profile management.
+ */
+
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { getClientUrl } from '../config/env.js';
@@ -5,6 +9,7 @@ import User from '../models/User.js';
 import { generateToken } from '../utils/generateToken.js';
 import { uploadImageBuffer } from '../utils/uploadImage.js';
 
+// Utility function to map user data for responses
 const mapUser = (user) => ({
   _id: user._id,
   username: user.username,

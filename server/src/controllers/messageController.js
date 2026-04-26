@@ -4,8 +4,9 @@ import Group from '../models/Group.js';
 import mongoose from 'mongoose';
 import { getUploadedFile } from '../middleware/uploadMiddleware.js';
 import { buildUploadUrl } from '../utils/uploadFile.js';
-import { emitToGroup, emitToUser } from '../socket/socketState.js';
+import { emitToGroup, emitToUser, isUserOnline } from '../socket/socketState.js';
 import { upsertDirectConversation } from '../utils/conversationUtils.js';
+import Conversation from '../models/Conversation.js';
 
 const hasUserId = (list, userId) => (list || []).some((id) => String(id) === String(userId));
 const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
@@ -88,6 +89,32 @@ const formatRecentMessageTime = (date) => new Date(date).toLocaleString([], {
   hour: 'numeric',
   minute: '2-digit'
 });
+
+const ensureDirectConversationAccess = async ({ currentUserId, otherUserId }) => {
+  if (!currentUserId) {
+    return { status: 401, message: 'Unauthorized' };
+  }
+
+  if (!otherUserId) {
+    return { status: 400, message: 'Receiver ID missing' };
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(otherUserId)) {
+    return { status: 400, message: 'Invalid receiver ID' };
+  }
+
+  const currentUser = await User.findById(currentUserId).select('friends');
+  if (!currentUser) {
+    return { status: 404, message: 'User not found' };
+  }
+
+  const isFriend = (currentUser?.friends || []).some((id) => String(id) === String(otherUserId));
+  if (!isFriend) {
+    return { status: 403, message: 'Invalid conversation' };
+  }
+
+  return { ok: true };
+};
 
 export const getRecentMessages = async (req, res, next) => {
   try {
@@ -230,14 +257,40 @@ export const sendMessage = async (req, res, next) => {
       attachmentUrl,
       attachmentType,
       attachmentName,
-      replyTo
+      replyTo,
+      seen: false,
+      seenAt: null
     });
 
+    if (isUserOnline(receiverId)) {
+      createdMessage.deliveredAt = new Date();
+      await createdMessage.save();
+    }
+
     const message = await populateMessageById(createdMessage._id);
+    emitMessageEvent(message, 'message:send', message);
     emitMessageEvent(message, 'message:new', message);
+    if (message.deliveredAt) {
+      emitMessageEvent(message, 'message:delivered', {
+        messageId: String(message._id),
+        deliveredAt: message.deliveredAt,
+        senderId: String(message.sender?._id || message.sender),
+        receiverId: String(message.receiver?._id || message.receiver)
+      });
+    }
     await Promise.all([
-      upsertDirectConversation({ ownerId: senderId, peerUserId: receiverId, message }),
-      upsertDirectConversation({ ownerId: receiverId, peerUserId: senderId, message })
+      upsertDirectConversation({
+        ownerId: senderId,
+        peerUserId: receiverId,
+        message,
+        resetUnread: true
+      }),
+      upsertDirectConversation({
+        ownerId: receiverId,
+        peerUserId: senderId,
+        message,
+        unreadDelta: 1
+      })
     ]);
 
     res.status(201).json({ message });
@@ -391,39 +444,81 @@ export const markSeen = async (req, res, next) => {
     const { userId } = req.params;
     const currentUserId = req.user?._id;
 
-    if (!currentUserId) {
-      return res.status(401).json({ message: 'Unauthorized' });
+    const access = await ensureDirectConversationAccess({ currentUserId, otherUserId: userId });
+    if (!access.ok) {
+      return res.status(access.status).json({ message: access.message });
     }
 
-    if (!userId) {
-      return res.status(400).json({ message: 'Receiver ID missing' });
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: 'Invalid receiver ID' });
-    }
-
-    const currentUser = await User.findById(currentUserId).select('friends');
-    if (!currentUser) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    const isFriend = (currentUser?.friends || []).some((id) => String(id) === String(userId));
-
-    if (!isFriend) {
-      return res.status(403).json({ message: 'Invalid conversation' });
-    }
-
-    await Message.updateMany(
+    const unseenMessages = await Message.find(
       {
         sender: userId,
         receiver: currentUserId,
+        groupId: null,
         seen: false
       },
-      { seen: true }
+      { _id: 1 }
     );
 
-    res.status(200).json({ message: 'Messages marked as seen' });
+    const seenAt = new Date();
+    if (unseenMessages.length > 0) {
+      await Message.updateMany(
+        {
+          _id: { $in: unseenMessages.map((message) => message._id) }
+        },
+        { $set: { seen: true, seenAt } }
+      );
+
+      const payload = {
+        conversationId: String(userId),
+        seenBy: String(currentUserId),
+        messageIds: unseenMessages.map((message) => String(message._id)),
+        seenAt
+      };
+      emitToUser(userId, 'message:seen', payload);
+      emitToUser(currentUserId, 'message:seen', payload);
+    }
+
+    await Conversation.updateOne(
+      { owner: currentUserId, type: 'direct', peerUser: userId },
+      { $set: { unreadCount: 0 } }
+    );
+
+    res.status(200).json({
+      message: 'Messages marked as seen',
+      seenCount: unseenMessages.length
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getUnreadCount = async (req, res, next) => {
+  try {
+    const { conversationId } = req.params;
+    const currentUserId = req.user?._id;
+    const access = await ensureDirectConversationAccess({ currentUserId, otherUserId: conversationId });
+
+    if (!access.ok) {
+      return res.status(access.status).json({ message: access.message });
+    }
+
+    const unreadCount = await Message.countDocuments({
+      sender: conversationId,
+      receiver: currentUserId,
+      groupId: null,
+      seen: false
+    });
+
+    return res.status(200).json({ unreadCount });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const markConversationSeen = async (req, res, next) => {
+  try {
+    req.params.userId = req.params.conversationId;
+    return markSeen(req, res, next);
   } catch (error) {
     next(error);
   }

@@ -313,6 +313,7 @@ export const sendGroupMessage = async (req, res, next) => {
     emitToGroup(groupId, 'newGroupMessage', populatedMessage);
     await upsertGroupConversations({
       groupId,
+      senderId: req.user._id,
       memberIds: (group.members || []).map((member) => member._id),
       message: populatedMessage
     });

@@ -30,6 +30,13 @@ const ChatPage = () => {
   const [userSearchResults, setUserSearchResults] = useState([]);
   const [feedback, setFeedback] = useState('');
   const [mobileView, setMobileView] = useState('list');
+  const [activeChatId, setActiveChatId] = useState(null);
+  const [isWindowVisible, setIsWindowVisible] = useState(() => (
+    typeof document === 'undefined' ? true : document.visibilityState === 'visible'
+  ));
+  const [isDesktopViewport, setIsDesktopViewport] = useState(() => (
+    typeof window === 'undefined' ? true : window.innerWidth >= 1024
+  ));
   const [requestsOpen, setRequestsOpen] = useState(true);
   const [requestActionLoading, setRequestActionLoading] = useState({});
   const [friendStatuses, setFriendStatuses] = useState({});
@@ -87,9 +94,31 @@ const ChatPage = () => {
     });
   }, []);
 
+  const patchMessage = useCallback((messageId, patch) => {
+    if (!messageId) {
+      return;
+    }
+
+    setMessages((prev) => prev.map((message) => (
+      String(message._id) === String(messageId) ? { ...message, ...patch } : message
+    )));
+  }, []);
+
   const resetComposerState = useCallback(() => {
     setReplyingTo(null);
     setEditingMessage(null);
+  }, []);
+
+  const markDirectConversationSeen = useCallback(async (peerUserId) => {
+    if (!peerUserId) {
+      return;
+    }
+
+    try {
+      await api.patch(`/messages/${peerUserId}/mark-seen`);
+    } catch {
+      api.patch(`/messages/seen/${peerUserId}`).catch(() => {});
+    }
   }, []);
 
   const showFeedback = useCallback((message, duration = 2000) => {
@@ -106,6 +135,21 @@ const ChatPage = () => {
         clearTimeout(feedbackTimerRef.current);
       }
     };
+  }, []);
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      setIsWindowVisible(document.visibilityState === 'visible');
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
+
+  useEffect(() => {
+    const onResize = () => setIsDesktopViewport(window.innerWidth >= 1024);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   const filteredFriends = useMemo(
@@ -150,7 +194,9 @@ const ChatPage = () => {
         return {
           ...friend,
           conversationId: conversation?._id || null,
-          isStarred: Boolean(conversation?.isStarred)
+          isStarred: Boolean(conversation?.isStarred),
+          unreadCount: conversation?.unreadCount || 0,
+          lastAt: conversation?.lastAt || null
         };
       });
 
@@ -159,7 +205,9 @@ const ChatPage = () => {
         return {
           ...group,
           conversationId: conversation?._id || null,
-          isStarred: Boolean(conversation?.isStarred)
+          isStarred: Boolean(conversation?.isStarred),
+          unreadCount: conversation?.unreadCount || 0,
+          lastAt: conversation?.lastAt || null
         };
       });
 
@@ -255,14 +303,55 @@ const ChatPage = () => {
     if (selectedChat?._id) {
       fetchMessages(selectedChat);
       resetComposerState();
-      if (selectedChat.type === 'direct') {
-        api.patch(`/messages/seen/${selectedChat._id}`).catch(() => {});
-      }
     } else {
       setMessages([]);
       resetComposerState();
     }
   }, [selectedChat, fetchMessages, resetComposerState]);
+
+  useEffect(() => {
+    const chatPanelVisible = mobileView === 'chat' || isDesktopViewport;
+
+    if (selectedChat?.type === 'direct' && chatPanelVisible) {
+      setActiveChatId(String(selectedChat._id));
+      return;
+    }
+
+    setActiveChatId(null);
+  }, [selectedChat, mobileView, isDesktopViewport]);
+
+  useEffect(() => {
+    if (!activeChatId || !isWindowVisible) {
+      return;
+    }
+
+    markDirectConversationSeen(activeChatId);
+
+    if (selectedChat?.type === 'direct' && selectedChat.conversationId) {
+      api.patch(`/conversations/${selectedChat.conversationId}/read`).catch(() => {});
+    }
+
+    setFriends((prev) => prev.map((friend) => (
+      String(friend._id) === String(activeChatId) ? { ...friend, unreadCount: 0 } : friend
+    )));
+  }, [activeChatId, isWindowVisible, selectedChat, markDirectConversationSeen]);
+
+  useEffect(() => {
+    const chatPanelVisible = mobileView === 'chat' || isDesktopViewport;
+    if (
+      !chatPanelVisible ||
+      !isWindowVisible ||
+      selectedChat?.type !== 'group' ||
+      !selectedChat?.conversationId
+    ) {
+      return;
+    }
+
+    api.patch(`/conversations/${selectedChat.conversationId}/read`).catch(() => {});
+    setGroups((prev) => prev.map((group) => (
+      String(group._id) === String(selectedChat._id) ? { ...group, unreadCount: 0 } : group
+    )));
+  }, [selectedChat, mobileView, isDesktopViewport, isWindowVisible]);
 
   useEffect(() => {
     if (!socket) {
@@ -357,6 +446,16 @@ const ChatPage = () => {
       const isCurrentChat = selectedChat?.type === 'direct' && belongsToSelectedChat(incomingMessage);
       if (isCurrentChat) {
         upsertMessage(incomingMessage);
+        const senderId = getId(incomingMessage.sender);
+        if (
+          senderId &&
+          senderId !== String(user?._id) &&
+          String(activeChatId || '') === String(senderId) &&
+          isWindowVisible
+        ) {
+          markDirectConversationSeen(senderId);
+        }
+        fetchSidebarData();
         return;
       }
 
@@ -364,16 +463,39 @@ const ChatPage = () => {
       if (senderFriend && !senderFriend.isMuted && user?.notifications?.messages) {
         showFeedback(`New message from ${senderFriend.username}`, 1800);
       }
+      fetchSidebarData();
     };
 
-    const onTypingStart = ({ from }) => {
-      if (selectedChat?.type === 'direct' && from === selectedChat._id) {
+    const onDelivered = ({ messageId, deliveredAt }) => {
+      patchMessage(messageId, {
+        deliveredAt: deliveredAt || new Date().toISOString()
+      });
+    };
+
+    const onSeen = ({ messageIds = [], seenAt }) => {
+      if (!Array.isArray(messageIds) || messageIds.length === 0) {
+        return;
+      }
+
+      const seenTimestamp = seenAt || new Date().toISOString();
+      setMessages((prev) => prev.map((message) => (
+        messageIds.includes(String(message._id))
+          ? { ...message, seen: true, seenAt: seenTimestamp }
+          : message
+      )));
+      fetchSidebarData();
+    };
+
+    const onTypingStart = ({ from, senderId }) => {
+      const typingUserId = senderId || from;
+      if (selectedChat?.type === 'direct' && String(typingUserId) === String(selectedChat._id)) {
         setIsRemoteTyping(true);
       }
     };
 
-    const onTypingStop = ({ from }) => {
-      if (selectedChat?.type === 'direct' && from === selectedChat._id) {
+    const onTypingStop = ({ from, senderId }) => {
+      const typingUserId = senderId || from;
+      if (selectedChat?.type === 'direct' && String(typingUserId) === String(selectedChat._id)) {
         setIsRemoteTyping(false);
       }
     };
@@ -384,6 +506,7 @@ const ChatPage = () => {
 
       if (currentGroup && String(messageGroupId) === String(currentGroup)) {
         upsertMessage(incomingMessage);
+        fetchSidebarData();
         return;
       }
 
@@ -391,6 +514,7 @@ const ChatPage = () => {
       if (group && user?.notifications?.messages) {
         showFeedback(`New group message in ${group.name}`, 1800);
       }
+      fetchSidebarData();
     };
 
     const onMessageReaction = (updatedMessage) => {
@@ -421,23 +545,33 @@ const ChatPage = () => {
     };
 
     socket.on('message:new', onNewMessage);
+    socket.on('message:send', onNewMessage);
     socket.on('newGroupMessage', onNewGroupMessage);
+    socket.on('message:delivered', onDelivered);
+    socket.on('message:seen', onSeen);
     socket.on('message:reaction', onMessageReaction);
     socket.on('message:edited', onMessageEdited);
     socket.on('message:deleted', onMessageDeleted);
     socket.on('typing:start', onTypingStart);
+    socket.on('typing', onTypingStart);
     socket.on('typing:stop', onTypingStop);
+    socket.on('stop_typing', onTypingStop);
 
     return () => {
       socket.off('message:new', onNewMessage);
+      socket.off('message:send', onNewMessage);
       socket.off('newGroupMessage', onNewGroupMessage);
+      socket.off('message:delivered', onDelivered);
+      socket.off('message:seen', onSeen);
       socket.off('message:reaction', onMessageReaction);
       socket.off('message:edited', onMessageEdited);
       socket.off('message:deleted', onMessageDeleted);
       socket.off('typing:start', onTypingStart);
+      socket.off('typing', onTypingStart);
       socket.off('typing:stop', onTypingStop);
+      socket.off('stop_typing', onTypingStop);
     };
-  }, [socket, selectedChat, friends, groups, showFeedback, user?.notifications?.messages, belongsToSelectedChat, upsertMessage]);
+  }, [socket, selectedChat, friends, groups, showFeedback, user?._id, user?.notifications?.messages, activeChatId, isWindowVisible, belongsToSelectedChat, upsertMessage, patchMessage, markDirectConversationSeen, fetchSidebarData]);
 
   useEffect(() => {
     if (!socket || !selectedChat || selectedChat.type !== 'direct') {
@@ -446,9 +580,11 @@ const ChatPage = () => {
 
     if (typing) {
       socket.emit('typing:start', { from: user._id, to: selectedChat._id });
+      socket.emit('typing', { senderId: user._id, receiverId: selectedChat._id });
       const timeout = setTimeout(() => {
         setTyping(false);
         socket.emit('typing:stop', { from: user._id, to: selectedChat._id });
+        socket.emit('stop_typing', { senderId: user._id, receiverId: selectedChat._id });
       }, 900);
 
       return () => clearTimeout(timeout);
@@ -507,8 +643,10 @@ const ChatPage = () => {
       setDraft('');
       setTyping(false);
       resetComposerState();
+      fetchSidebarData();
       if (selectedChat.type === 'direct') {
         socket?.emit('typing:stop', { from: user._id, to: selectedChat._id });
+        socket?.emit('stop_typing', { senderId: user._id, receiverId: selectedChat._id });
       }
     } catch (error) {
       showFeedback(error.response?.data?.message || 'Failed to send message', 2000);
@@ -540,6 +678,7 @@ const ChatPage = () => {
       );
 
       upsertMessage(data.message);
+      fetchSidebarData();
       setDraft('');
       setTyping(false);
       resetComposerState();
@@ -618,7 +757,9 @@ const ChatPage = () => {
           return {
             ...friend,
             conversationId: conversation?._id || null,
-            isStarred: Boolean(conversation?.isStarred)
+            isStarred: Boolean(conversation?.isStarred),
+            unreadCount: conversation?.unreadCount || 0,
+            lastAt: conversation?.lastAt || null
           };
         }));
 
@@ -627,7 +768,9 @@ const ChatPage = () => {
           return {
             ...group,
             conversationId: conversation?._id || null,
-            isStarred: Boolean(conversation?.isStarred)
+            isStarred: Boolean(conversation?.isStarred),
+            unreadCount: conversation?.unreadCount || 0,
+            lastAt: conversation?.lastAt || null
           };
         }));
 
@@ -936,6 +1079,7 @@ const ChatPage = () => {
               setSelectedChat={(chat) => {
                 setSelectedChat(chat);
                 setMobileView('chat');
+                setActiveChatId(chat?.type === 'direct' ? String(chat._id) : null);
               }}
               onlineUsers={onlineUsers}
               friendStatuses={friendStatuses}
@@ -965,7 +1109,10 @@ const ChatPage = () => {
               typing={isRemoteTyping}
               setTyping={setTyping}
               isFriendOnline={onlineUsers.includes(selectedChat?._id)}
-              onBack={selectedChat ? () => setMobileView('list') : null}
+              onBack={selectedChat ? () => {
+                setMobileView('list');
+                setActiveChatId(null);
+              } : null}
               canMessage={canMessage}
               blockedMessage={blockedMessage}
               currentUserId={user?._id}

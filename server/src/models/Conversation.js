@@ -41,6 +41,11 @@ const conversationSchema = new mongoose.Schema(
     isStarred: {
       type: Boolean,
       default: false
+    },
+    unreadCount: {
+      type: Number,
+      default: 0,
+      min: 0
     }
   },
   { timestamps: true }

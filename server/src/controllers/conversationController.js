@@ -1,6 +1,7 @@
 import Conversation from '../models/Conversation.js';
 import Group from '../models/Group.js';
 import User from '../models/User.js';
+import { markConversationRead } from '../utils/conversationUtils.js';
 
 const mapConversation = (conversation, currentUserId) => {
   if (!conversation) {
@@ -18,6 +19,7 @@ const mapConversation = (conversation, currentUserId) => {
       memberCount: group?.members?.length || 0,
       isAdmin: Array.isArray(group?.admin) && group.admin.some((id) => String(id) === String(currentUserId)),
       isStarred: conversation.isStarred,
+      unreadCount: conversation.unreadCount || 0,
       lastPreview: conversation.lastPreview,
       lastAt: conversation.lastAt
     };
@@ -33,6 +35,7 @@ const mapConversation = (conversation, currentUserId) => {
     status: peer?.status,
     bio: peer?.bio,
     isStarred: conversation.isStarred,
+    unreadCount: conversation.unreadCount || 0,
     lastPreview: conversation.lastPreview,
     lastAt: conversation.lastAt
   };
@@ -108,7 +111,7 @@ export const getConversations = async (req, res, next) => {
     const conversations = await Conversation.find(filter)
       .populate('peerUser', 'username profilePic status bio')
       .populate('group', 'name groupPic members admin')
-      .sort({ updatedAt: -1 });
+      .sort({ isStarred: -1, unreadCount: -1, lastAt: -1, updatedAt: -1 });
 
     res.status(200).json({
       conversations: conversations.map((conv) => mapConversation(conv, req.user._id)).filter(Boolean)
@@ -137,6 +140,23 @@ export const toggleConversationStar = async (req, res, next) => {
     return res.status(200).json({
       conversation: mapConversation(conversation, req.user._id)
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const readConversation = async (req, res, next) => {
+  try {
+    const conversation = await markConversationRead({
+      ownerId: req.user._id,
+      conversationId: req.params.id
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found' });
+    }
+
+    return res.status(200).json({ message: 'Conversation marked as read' });
   } catch (error) {
     next(error);
   }

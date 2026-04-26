@@ -57,6 +57,22 @@ const getStatusLabel = (status, isOnline) => {
   return isOnline ? 'Online' : 'Offline';
 };
 
+const compareConversations = (a, b) => {
+  const starredDiff = Number(Boolean(b.isStarred)) - Number(Boolean(a.isStarred));
+  if (starredDiff !== 0) {
+    return starredDiff;
+  }
+
+  const unreadDiff = (b.unreadCount || 0) - (a.unreadCount || 0);
+  if (unreadDiff !== 0) {
+    return unreadDiff;
+  }
+
+  const timeA = a.lastAt ? new Date(a.lastAt).getTime() : 0;
+  const timeB = b.lastAt ? new Date(b.lastAt).getTime() : 0;
+  return timeB - timeA;
+};
+
 const ConversationList = ({
   friends,
   groups,
@@ -82,15 +98,17 @@ const ConversationList = ({
 
   const conversations = useMemo(() => {
     if (activeSection === 'Recent') {
-      return [...groups, ...friends];
+      return [...groups, ...friends].sort(compareConversations);
     }
     if (activeSection === 'Unread') {
-      return [...friends, ...groups].filter((item) => (item.unreadCount || 0) > 0);
+      return [...friends, ...groups]
+        .filter((item) => (item.unreadCount || 0) > 0)
+        .sort(compareConversations);
     }
     if (activeSection === 'Groups') {
-      return groups;
+      return [...groups].sort(compareConversations);
     }
-    return friends;
+    return [...friends].sort(compareConversations);
   }, [friends, groups, activeSection]);
 
   return (
@@ -297,6 +315,14 @@ const ConversationList = ({
                         <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{isGroup ? item.name : item.username}</p>
                         <p className="truncate text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>
                       </div>
+                      {(item.unreadCount || 0) > 0 && (
+                        <div className="ml-1 flex items-center gap-1.5">
+                          <span className="h-2.5 w-2.5 rounded-full bg-blue-500" aria-hidden="true" />
+                          <span className="rounded-full bg-brand-600 px-2 py-0.5 text-[10px] font-semibold text-white">
+                            {item.unreadCount}
+                          </span>
+                        </div>
+                      )}
                     </button>
                     <button
                       type="button"

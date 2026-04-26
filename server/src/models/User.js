@@ -1,3 +1,8 @@
+/**
+ * User model - Defines the schema for user accounts in the database.
+ * Includes authentication, profile, and social features.
+ */
+
 import mongoose from 'mongoose';
 
 const userSchema = new mongoose.Schema(

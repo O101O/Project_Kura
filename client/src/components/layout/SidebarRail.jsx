@@ -42,7 +42,7 @@ const SidebarRail = ({ settingsState }) => {
         );
       })}
 
-      {utilityIcons.map(({ id, icon: Icon, label }) => (
+      {/* {utilityIcons.map(({ id, icon: Icon, label }) => (
         <button
           key={id}
           type="button"
@@ -52,7 +52,7 @@ const SidebarRail = ({ settingsState }) => {
         >
           <Icon size={14} />
         </button>
-      ))}
+      ))} */}
 
       <div className="mt-auto">
         <button

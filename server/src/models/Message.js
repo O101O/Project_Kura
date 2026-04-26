@@ -40,12 +40,14 @@ const messageSchema = new mongoose.Schema(
     sender: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true
+      required: true,
+      alias: 'senderId'
     },
     receiver: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      default: null
+      default: null,
+      alias: 'receiverId'
     },
     groupId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -88,6 +90,14 @@ const messageSchema = new mongoose.Schema(
     seen: {
       type: Boolean,
       default: false
+    },
+    deliveredAt: {
+      type: Date,
+      default: null
+    },
+    seenAt: {
+      type: Date,
+      default: null
     },
     isStarred: {
       type: Boolean,

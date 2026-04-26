@@ -1,3 +1,8 @@
+/**
+ * Authentication context - Manages user authentication state and provides auth methods.
+ * Handles login, register, logout, and user session persistence.
+ */
+
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import api from '../utils/api';
 import { STORAGE_KEYS } from '../utils/constants';
@@ -8,6 +13,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Initialize user session on app start
   useEffect(() => {
     const init = async () => {
       const token = localStorage.getItem(STORAGE_KEYS.token);
@@ -30,12 +36,14 @@ export const AuthProvider = ({ children }) => {
     init();
   }, []);
 
+  // Login user
   const login = async (email, password) => {
     const { data } = await api.post('/auth/login', { email, password });
     localStorage.setItem(STORAGE_KEYS.token, data.token);
     setUser(data.user);
   };
 
+  // Register new user
   const register = async (formData) => {
     const { data } = await api.post('/auth/register', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
@@ -44,6 +52,7 @@ export const AuthProvider = ({ children }) => {
     setUser(data.user);
   };
 
+  // Logout user
   const logout = () => {
     localStorage.removeItem(STORAGE_KEYS.token);
     setUser(null);

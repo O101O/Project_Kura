@@ -1,3 +1,8 @@
+/**
+ * Main entry point for the Kura server application.
+ * Sets up Express server, Socket.io, database connection, and routes.
+ */
+
 import dotenv from 'dotenv';
 import http from 'http';
 import express from 'express';
@@ -21,13 +26,18 @@ import { errorHandler, notFound } from './middleware/errorMiddleware.js';
 import { configureSocket } from './socket/socketHandler.js';
 import { setIO } from './socket/socketState.js';
 
+// Load environment variables
 dotenv.config();
 
+// Create Express app and HTTP server
 const app = express();
 const server = http.createServer(app);
+
+// Get configuration from environment
 const clientUrl = getClientUrl();
 const localOriginPattern = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/;
 
+// CORS origin validation function
 const corsOrigin = (origin, callback) => {
   if (!origin) {
     return callback(null, true);
@@ -40,6 +50,7 @@ const corsOrigin = (origin, callback) => {
   return callback(new Error('Not allowed by CORS'));
 };
 
+// Initialize Socket.io server with CORS
 const io = new Server(server, {
   cors: {
     origin: corsOrigin,
@@ -47,19 +58,25 @@ const io = new Server(server, {
   }
 });
 
+// Set Socket.io instance in state
 setIO(io);
+
+// Configure Socket.io handlers
 configureSocket(io);
 
+// Middleware setup
 app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 app.use('/uploads', express.static(getUploadsDir()));
 
+// Health check endpoint
 app.get('/api/health', (_req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
+// API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/user', userRoutes);
@@ -72,17 +89,21 @@ app.use('/api/group', groupRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/events', eventRoutes);
 
+// Error handling middleware
 app.use(notFound);
 app.use(errorHandler);
 
+// Get port from environment
 const port = getPort();
 
+// Connect to database and start server
 connectDB()
   .then(() => {
     server.listen(port, () => {
       console.log(`Server running on port ${port}`);
     });
 
+    // Sync database indexes for Conversation model
     Conversation.syncIndexes().catch((error) => {
       console.error('Failed to sync conversation indexes:', error.message);
     });

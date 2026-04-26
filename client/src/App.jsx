@@ -6,14 +6,22 @@ import Dashboard from './pages/Dashboard';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import SettingsPage from './pages/SettingsPage';
 import { APP_ROUTES } from './utils/constants';
 
+/**
+ * Main App component that defines the application routes.
+ * Uses React Router for client-side routing.
+ */
 const App = () => {
   return (
     <Routes>
+      {/* Public routes */}
       <Route path={APP_ROUTES.auth} element={<AuthPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+
+      {/* Protected routes */}
       <Route
         path={APP_ROUTES.dashboard}
         element={
@@ -42,10 +50,12 @@ const App = () => {
         path={APP_ROUTES.settings}
         element={
           <ProtectedRoute>
-            <ChatPage />
+            <SettingsPage />
           </ProtectedRoute>
         }
       />
+
+      {/* Default redirects */}
       <Route path={APP_ROUTES.root} element={<Navigate to={APP_ROUTES.dashboard} replace />} />
       <Route path="*" element={<Navigate to={APP_ROUTES.dashboard} replace />} />
     </Routes>

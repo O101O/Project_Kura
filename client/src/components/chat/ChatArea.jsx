@@ -1,6 +1,12 @@
+/**
+ * ChatArea component - Main chat interface for displaying messages and composing new ones.
+ * Handles message rendering, reactions, replies, edits, and file uploads.
+ */
+
 import EmojiPicker from 'emoji-picker-react';
 import {
   Check,
+  CheckCheck,
   ChevronLeft,
   CornerUpLeft,
   ImagePlus,
@@ -14,13 +20,25 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+// Reaction options available for messages
 const REACTION_OPTIONS = ['👍', '❤️', '😂'];
 
+// Utility functions
 const formatTime = (dateString) => {
   return new Date(dateString).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit'
   });
+};
+
+const getDeliveryState = (message) => {
+  if (message.seen) {
+    return 'seen';
+  }
+  if (message.deliveredAt) {
+    return 'delivered';
+  }
+  return 'sent';
 };
 
 const isImageAttachment = (message) => {
@@ -319,6 +337,16 @@ const ChatArea = ({
                     <div className={`mt-1.5 flex items-center gap-1 text-[11px] ${isMine ? 'text-indigo-100' : 'text-slate-500 dark:text-slate-400'}`}>
                       <span>{formatTime(message.createdAt)}</span>
                       {message.isEdited && <span>(edited)</span>}
+                      {isMine && selectedChat.type === 'direct' && (
+                        <span
+                          className={`inline-flex items-center ${
+                            getDeliveryState(message) === 'seen' ? 'text-sky-200' : 'text-indigo-100/90'
+                          }`}
+                          title={getDeliveryState(message)}
+                        >
+                          {getDeliveryState(message) === 'sent' ? <Check size={12} /> : <CheckCheck size={12} />}
+                        </span>
+                      )}
                     </div>
                   </div>
 

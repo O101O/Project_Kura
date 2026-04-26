@@ -4,6 +4,8 @@ import {
   deleteMessage,
   editMessage,
   getMessages,
+  getUnreadCount,
+  markConversationSeen,
   getRecentMessages,
   markSeen,
   reactToMessage,
@@ -18,6 +20,8 @@ router.use(protect);
 router.get('/recent', getRecentMessages);
 router.delete('/chat/:userId', deleteChat);
 router.patch('/seen/:userId', markSeen);
+router.get('/:conversationId/unread-count', getUnreadCount);
+router.patch('/:conversationId/mark-seen', markConversationSeen);
 router.post('/:id/react', reactToMessage);
 router.put('/:id', editMessage);
 router.delete('/:id', deleteMessage);
